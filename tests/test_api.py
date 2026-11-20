@@ -188,12 +188,55 @@ class TestAffectations(TestApi):
         self.assertEqual(len(r["affectations"]), 1)
 
 
+class TestSauvegardeEtExports(TestAffectations):
+    test_creation_et_chevauchement = test_modifier_sans_conflit_avec_soi_meme = test_rendre_couper_changer = None
+    test_annuler = test_filtre_par_periode = None
+
+    def test_sauvegarde_restauration(self):
+        self.poser("2026-10-01", "2026-10-31")
+        self.c.post(f"/api/articles/{self.art}/photo", data={"fichier": (io.BytesIO(b"img"), "p.png")},
+                    content_type="multipart/form-data")
+        r = self.c.get("/api/sauvegarde")
+        self.assertEqual(r.status_code, 200)
+        zip_ok = r.data
+        # On modifie les données, puis on restaure : retour à l'état sauvegardé.
+        self.c.post("/api/chantiers", json={"numero": "333 333", "nom": "C"})
+        self.c.delete(f"/api/affectations/{self.periodes() and self.c.get('/api/affectations').get_json()['affectations'][0]['id']}")
+        r = self.c.post("/api/restauration", data={"fichier": (io.BytesIO(zip_ok), "s.zip")}, content_type="multipart/form-data")
+        self.assertEqual(r.status_code, 200, r.get_json())
+        self.assertEqual(len(self.c.get("/api/chantiers").get_json()), 2)
+        self.assertEqual(len(self.periodes()), 1)
+        photo = self.c.get(f"/api/articles/{self.art}").get_json()["photo"]
+        self.assertEqual(self.c.get(f"/fichiers/photos/{photo}").data, b"img")
+        self.assertTrue((base.DOSSIER_DONNEES / "sauvegardes_auto" / r.get_json()["securite"]).exists())
+        # Mauvais fichier : refusé, rien n'est touché.
+        r = self.c.post("/api/restauration", data={"fichier": (io.BytesIO(b"x"), "s.zip")}, content_type="multipart/form-data")
+        self.assertEqual(r.status_code, 400)
+
+    def test_exports(self):
+        self.poser("2026-10-05", "2026-11-03")
+        import openpyxl
+        for url in ("/api/export/inventaire.xlsx", "/api/export/affectations.xlsx", "/api/export/mois/2026/10.xlsx"):
+            r = self.c.get(url)
+            self.assertEqual(r.status_code, 200, url)
+            openpyxl.load_workbook(io.BytesIO(r.data))
+        r = self.c.get("/api/export/mois/2026/10.pdf")
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.data.startswith(b"%PDF"))
+        self.assertIn('filename="2026_10.pdf"', r.headers["Content-Disposition"])
+        ws = openpyxl.load_workbook(io.BytesIO(self.c.get("/api/export/mois/2026/10.xlsx").data)).active
+        # Barre du 05.10 au 03.11 : coupée à la fin du mois, colonnes H à AH.
+        self.assertIn("H4:AH4", [str(m) for m in ws.merged_cells.ranges])
+
+
 def excel_fictif():
     """Petit classeur au format de l'ancien planning (données inventées)."""
     import openpyxl
     from openpyxl.styles import PatternFill
     wb = openpyxl.Workbook()
     ws = wb.active
+    import datetime as dt
+    ws["D2"] = dt.datetime(2026, 1, 1)
     ws["A4"] = "Canne GPS"
     ws.merge_cells("A4:A6")
     for r, (code, num, coul) in enumerate([(112, "G1", "FFB7B7"), (None, "G2", "FFFFB9"), (103, "G3", "CCE0F4")], start=4):
@@ -239,11 +282,26 @@ class TestPreremplissage(TestApi):
         r = self.c.post("/api/preremplissage/valider", json={"articles": [], "chantiers": [ch["10 555"]]})
         self.assertEqual(r.status_code, 400)
         ch["10 555"]["nom"] = "Ville C"
-        r = self.c.post("/api/preremplissage/valider", json={"articles": d["articles"], "chantiers": d["chantiers"]})
-        self.assertEqual(r.get_json(), {"categories": 2, "articles": 5, "chantiers": 4, "ignores": 0})
-        # Deuxième passage : tout existe déjà, rien n'est dupliqué.
-        r = self.c.post("/api/preremplissage/valider", json={"articles": d["articles"], "chantiers": d["chantiers"]})
-        self.assertEqual(r.get_json()["ignores"], 9)
+        # Barres : « 111 222 » est coupé en deux morceaux consécutifs (D4:J4 + K4:M4) -> recollés.
+        aff = {(a["numero_interne"], a["date_debut"], a["date_fin"]): a for a in d["affectations"]}
+        self.assertIn(("G1", "2026-01-01", "2026-01-10"), aff)
+        self.assertIn(("G2", "2026-01-04", "2026-01-04"), aff)   # cellule isolée « 10555 »
+        self.assertEqual(len(d["affectations"]), 4)
+        r = self.c.post("/api/preremplissage/valider",
+                        json={"articles": d["articles"], "chantiers": d["chantiers"], "affectations": d["affectations"]})
+        res = r.get_json()
+        self.assertEqual((res["categories"], res["articles"], res["chantiers"], res["affectations"]), (2, 5, 4, 4), res)
+        # Deuxième passage : rien n'est dupliqué, les affectations se chevauchent et sont refusées.
+        r = self.c.post("/api/preremplissage/valider",
+                        json={"articles": d["articles"], "chantiers": d["chantiers"], "affectations": d["affectations"]})
+        res = r.get_json()
+        self.assertEqual(res["ignores"], 9)
+        self.assertEqual(len(res["refusees"]), 4)
+        # Avec « effacer » : les affectations de la période sont remplacées.
+        r = self.c.post("/api/preremplissage/valider",
+                        json={"articles": [], "chantiers": d["chantiers"], "affectations": d["affectations"], "effacer": True})
+        self.assertEqual(r.get_json()["affectations"], 4)
+        self.assertEqual(len(self.c.get("/api/affectations").get_json()["affectations"]), 4)
         self.assertEqual(len(self.c.get("/api/articles").get_json()), 5)
 
     def test_mauvais_fichier(self):

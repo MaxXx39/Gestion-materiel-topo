@@ -1,0 +1,4 @@
+Police Carlito (Regular et Bold), utilisée pour le PDF mensuel.
+Carlito a les mêmes dimensions que Calibri (police du modèle Excel / PDF d'origine).
+Auteur : tyPoland Lukasz Dziedzic. Licence : SIL Open Font License 1.1
+(libre d'utilisation et de redistribution) : https://openfontlicense.org

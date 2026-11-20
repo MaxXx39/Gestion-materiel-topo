@@ -6,7 +6,8 @@ import pageChantiers from "./pages/chantiers.js";
 import pageCategories from "./pages/categories.js";
 import pagePreremplir from "./pages/preremplir.js";
 import pagePlanning from "./pages/planning.js";
-import { pageAVenir } from "./pages/a-venir.js";
+import pageTableau from "./pages/tableau.js";
+import pageSauvegarde from "./pages/sauvegarde.js";
 
 const PAGES = {
   planning: pagePlanning,
@@ -15,7 +16,8 @@ const PAGES = {
   chantiers: pageChantiers,
   categories: pageCategories,
   preremplir: pagePreremplir,
-  tableau: pageAVenir("Tableau de bord", "Le tableau de bord arrive à l'étape 5."),
+  tableau: pageTableau,
+  sauvegarde: pageSauvegarde,
 };
 
 async function afficher() {

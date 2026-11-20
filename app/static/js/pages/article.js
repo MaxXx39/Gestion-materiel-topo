@@ -20,8 +20,10 @@ export default async function pageArticle(zone, [ident], params) {
       statut: "actif", couleur: couleurParDefaut(cat?.nb_articles || 0) };
   } else {
     const cat = categories.find((c) => String(c.id) === params.get("cat")) || categories[0];
-    article = { categorie_id: cat?.id, couleur: couleurParDefaut(cat?.nb_articles || 0), statut: "actif" };
+    article = { categorie_id: cat?.id, couleur: couleurParDefaut(cat?.nb_articles || 0), statut: "actif",
+      parent_id: params.get("parent") ? Number(params.get("parent")) : null };
   }
+  const tousArticles = await api("GET", "/api/articles");
   const existe = !!article.id;
   let couleurTouchee = existe;
 
@@ -46,8 +48,11 @@ export default async function pageArticle(zone, [ident], params) {
                 <input name="numero_interne" required placeholder="ex. 953A11"></label>
               <label class="champ"><span>Code article compta (N° MS – à facturer)</span>
                 <input name="code_compta" placeholder="ex. 112"></label>
-              <label class="champ large"><span>Désignation</span>
+              <label class="champ"><span>Désignation</span>
                 <input name="designation" placeholder="ex. Canne GPS Leica GS18 T"></label>
+              <label class="champ"><span>Accessoire de (facultatif)</span>
+                <select name="parent_id"><option value="">— aucun (article principal) —</option></select>
+                <small>Ex. une batterie ou un trépied rattaché à une canne GPS.</small></label>
               <div class="champ large"><span>Couleur sur le planning et le PDF</span>
                 <div class="palette" id="palette">
                   ${PALETTE.map((c) => `<button type="button" class="pastille" data-c="${c}" style="background:${c}" title="${c}"></button>`).join("")}
@@ -74,7 +79,7 @@ export default async function pageArticle(zone, [ident], params) {
           <div class="carte"><h3>Photo</h3><div id="photo"></div></div>
           <div class="carte"><h3>Documents</h3><div id="documents"></div></div>
           <div class="carte"><h3>Historique des affectations</h3><div id="historique"></div></div>
-          <div class="carte"><h3>Accessoires</h3><p class="doux">Batteries, trépied… : prévu dans une prochaine étape.</p></div>
+          <div class="carte"><h3>Accessoires</h3><div id="accessoires"></div></div>
         </div>
       </div>
       <div class="actions barre-actions">
@@ -151,7 +156,7 @@ export default async function pageArticle(zone, [ident], params) {
     donnees.prix_chf = champ("prix_chf").value;
     donnees.date_achat = valeurDate(champ("date_achat"), "Date d'achat");
     donnees.fin_garantie = valeurDate(champ("fin_garantie"), "Fin de garantie");
-    donnees.parent_id = article.parent_id || null;
+    donnees.parent_id = champ("parent_id").value || null;
     if (existe) {
       await api("PUT", `/api/articles/${article.id}`, donnees);
       return article.id;
@@ -196,6 +201,11 @@ export default async function pageArticle(zone, [ident], params) {
   dessinerPhoto(zone.querySelector("#photo"), article);
   dessinerDocuments(zone.querySelector("#documents"), article);
   dessinerHistorique(zone.querySelector("#historique"), article);
+  dessinerAccessoires(zone.querySelector("#accessoires"), article);
+  champ("parent_id").innerHTML += tousArticles
+    .filter((a) => a.id !== article.id && !a.parent_id)
+    .map((a) => `<option value="${a.id}">${esc(a.categorie_nom)} — ${esc(a.numero_interne)}</option>`).join("");
+  champ("parent_id").value = article.parent_id || "";
   if (!existe) champ("numero_interne").focus();
 }
 
@@ -271,6 +281,19 @@ function dessinerDocuments(conteneur, article) {
       } catch (e) { erreur(e); }
     };
   });
+}
+
+function dessinerAccessoires(conteneur, article) {
+  if (!article.id) {
+    conteneur.innerHTML = `<p class="doux">Enregistrez l'article pour pouvoir lui rattacher des accessoires.</p>`;
+    return;
+  }
+  const acc = article.accessoires || [];
+  conteneur.innerHTML = `
+    ${article.parent_id ? `<p>Cet article est un accessoire de <a href="#/article/${article.parent_id}">${esc(article.parent_numero)}</a>.</p>` : ""}
+    ${acc.length ? `<ul class="documents">${acc.map((a) => `<li><a href="#/article/${a.id}">${esc(a.numero_interne)}</a>
+      <span class="doux">${esc(a.designation)}</span></li>`).join("")}</ul>` : (article.parent_id ? "" : `<p class="doux">Aucun accessoire.</p>`)}
+    ${article.parent_id ? "" : `<a class="bouton" href="#/article/nouveau?parent=${article.id}">＋ Ajouter un accessoire</a>`}`;
 }
 
 function dessinerHistorique(conteneur, article) {

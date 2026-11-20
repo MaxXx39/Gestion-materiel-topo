@@ -84,13 +84,13 @@ function dessiner() {
       <span class="seg"><button data-act="mois" class="${etat.mode === "mois" ? "actif" : ""}">Mois</button><button data-act="annee" class="${etat.mode === "annee" ? "actif" : ""}">Année</button></span>
       <label class="case"><input type="checkbox" data-act="inactifs" ${etat.inactifs ? "checked" : ""}> Inactifs</label>
       <span class="espace"></span>
-      <span class="compteur">Dispo. aujourd'hui : <b>${dispo}</b></span>
+      <span class="compteur" title="Articles actifs disponibles au dépôt aujourd'hui">Dispo : <b>${dispo}</b></span>
       <input type="search" id="reperer" placeholder="Repérer un chantier, un article…" value="${esc(etat.reperer)}">
       <button data-act="annuler" ${D.annulable ? "" : "disabled"} title="Annuler la dernière modification (Ctrl+Z)">↶ Annuler</button>
-      <button data-act="clavier">＋ Saisie clavier</button>
-      <button class="primaire" disabled title="Arrive à l'étape 4">PDF du mois</button>
+      <button data-act="clavier" title="Saisie précise au clavier">＋ Saisie</button>
+      <button class="primaire" data-act="exporter" ${etat.mode === "mois" ? "" : "disabled title=\"Choisissez un mois\""}>Exporter le mois</button>
     </div>
-    ${!D.articles.length ? `<div class="carte message-attente">Aucun article. Commencez par <a href="#/preremplir">pré-remplir depuis l'Excel</a> ou <a href="#/article/nouveau">ajouter un matériel</a>.</div>`
+    ${!D.articles.length ? `<div class="carte message-attente">Aucun article. Commencez par <a href="#/preremplir">importer depuis l'Excel</a> ou <a href="#/article/nouveau">ajouter un matériel</a>.</div>`
       : etat.mode === "mois" ? grilleMois(auj) : grilleAnnee(auj)}
     <div class="legende" ${etat.mode === "annee" ? "hidden" : ""}>
       <span><b>Glisser</b> sur les jours d'une ligne = nouvelle affectation</span>
@@ -129,6 +129,7 @@ async function actionBarre(e) {
     case "annee": etat.mode = "annee"; return rafraichir();
     case "annuler": return annuler();
     case "clavier": return fenetreCreation();
+    case "exporter": return fenetreExport();
     default:
   }
 }
@@ -321,6 +322,38 @@ async function enregistrer(methode, url, corps) {
     }
   }
   await rafraichir();
+}
+
+// ------------------------------------------------------------------ Export du mois (PDF + Excel)
+function fenetreExport() {
+  const nom = `${etat.annee}_${String(etat.mois + 1).padStart(2, "0")}`;
+  const base = `/api/export/mois/${etat.annee}/${etat.mois + 1}`;
+  const dlg = fenetre(`
+    <h2>Exporter ${MOIS[etat.mois].toLowerCase()} ${etat.annee}</h2>
+    <p class="sous">Le PDF est pour la compta. L'Excel, avec la même mise en page, permet à quelqu'un de modifier
+    le tableau en votre absence (il n'est pas réimporté dans l'application).</p>
+    <div class="export-choix">
+      <a class="bouton primaire-lien" href="#" data-les-deux>⬇ Télécharger les deux <small>${nom}.pdf + ${nom}.xlsx</small></a>
+      <a class="bouton" href="${base}.pdf" download="${nom}.pdf">⬇ PDF pour la compta <small>${nom}.pdf</small></a>
+      <a class="bouton" href="${base}.xlsx" download="${nom}.xlsx">⬇ Excel modifiable <small>${nom}.xlsx</small></a>
+      <a class="bouton" href="${base}.pdf?voir=1" target="_blank">👁 Aperçu du PDF dans un nouvel onglet</a>
+    </div>
+    <div class="actions"><button data-fermer>Fermer</button></div>`);
+  dlg.querySelector("[data-fermer]").onclick = () => dlg.close();
+  dlg.querySelector("[data-les-deux]").onclick = (e) => {
+    e.preventDefault();
+    for (const [i, ext] of ["pdf", "xlsx"].entries()) {
+      setTimeout(() => {
+        const a = document.createElement("a");
+        a.href = `${base}.${ext}`;
+        a.download = `${nom}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }, i * 600);
+    }
+    notifier(`${nom}.pdf et ${nom}.xlsx téléchargés (dossier Téléchargements).`);
+  };
 }
 
 // ------------------------------------------------------------------ Fenêtres

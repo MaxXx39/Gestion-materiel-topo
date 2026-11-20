@@ -3,16 +3,19 @@ import datetime as dt
 import json
 import re
 import sqlite3
+import tempfile
 import threading
 import uuid
 from pathlib import Path
 
-from flask import Flask, g, jsonify, request, send_from_directory
+from flask import Flask, Response, g, jsonify, request, send_file, send_from_directory
 from werkzeug.exceptions import HTTPException
 from werkzeug.utils import secure_filename
 
 import base
+import export_mois
 import import_excel
+import sauvegarde
 
 DOSSIER_STATIC = Path(__file__).resolve().parent / "static"
 IDENTITE = "planning-materiel-topo"
@@ -100,7 +103,7 @@ def aujourdhui():
 def creer_app():
     app = Flask(__name__, static_folder=str(DOSSIER_STATIC), static_url_path="/static")
     app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
-    app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024
+    app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024 * 1024
     app.json.ensure_ascii = False
     app.json.sort_keys = False
 
@@ -117,7 +120,7 @@ def creer_app():
     @app.errorhandler(HTTPException)
     def erreur_http(e):
         if request.path.startswith("/api/"):
-            messages = {404: "Introuvable.", 413: "Fichier trop volumineux (200 Mo maximum)."}
+            messages = {404: "Introuvable.", 413: "Fichier trop volumineux."}
             return jsonify(erreur=messages.get(e.code, e.description)), e.code
         return e
 
@@ -139,6 +142,7 @@ def creer_app():
     enregistrer_chantiers(app)
     enregistrer_preremplissage(app)
     enregistrer_affectations(app)
+    enregistrer_exports(app)
     return app
 
 
@@ -542,14 +546,22 @@ def enregistrer_preremplissage(app):
         for c in resultat["chantiers"]:
             cle = base.cle_numero(c["numero"])
             c["existe"] = cle in cles if cle else c["nom"].lower() in noms
+        if resultat["affectations"]:
+            debut = min(a["date_debut"] for a in resultat["affectations"])
+            fin = max(a["date_fin"] for a in resultat["affectations"])
+            resultat["periode"] = [debut, fin]
+            resultat["nb_existantes"] = con.execute(
+                "SELECT COUNT(*) FROM affectation WHERE date_fin >= ? AND date_debut <= ?", (debut, fin)).fetchone()[0]
         return jsonify(resultat)
 
     @app.post("/api/preremplissage/valider")
     def preremplissage_valider():
         d = request.get_json(force=True)
         con = db()
-        compte = {"categories": 0, "articles": 0, "chantiers": 0, "ignores": 0}
+        compte = {"categories": 0, "articles": 0, "chantiers": 0, "affectations": 0, "ignores": 0, "refusees": []}
         try:
+            if d.get("affectations"):
+                memoriser(con)
             for brut in d.get("articles", []):
                 nom_cat = texte(brut, "categorie", True, "Catégorie", 100)
                 row = con.execute("SELECT id FROM categorie WHERE nom = ?", (nom_cat,)).fetchone()
@@ -569,21 +581,67 @@ def enregistrer_preremplissage(app):
                     "INSERT INTO article (categorie_id, ordre, numero_interne, code_compta, couleur) VALUES (?, ?, ?, ?, ?)",
                     (cat_id, ordre, numero, texte(brut, "code_compta", False, "Code compta", 50), couleur(brut, "couleur")))
                 compte["articles"] += 1
+
+            # Chantiers : création, puis correspondance « clé lue dans l'Excel » -> id.
+            correspondance = {}
             for brut in d.get("chantiers", []):
                 c = lire_chantier({"numero": brut.get("numero"), "nom": brut.get("nom"), "facturable": True})
-                try:
-                    verifier_chantier_unique(con, c)
-                except ErreurApi:
+                existant = trouver_chantier_existant(con, c)
+                if existant:
                     compte["ignores"] += 1
+                    ident = existant
+                else:
+                    ident = con.execute(f"INSERT INTO chantier ({', '.join(c)}) VALUES ({', '.join('?' * len(c))})",
+                                        list(c.values())).lastrowid
+                    compte["chantiers"] += 1
+                if brut.get("cle"):
+                    correspondance[brut["cle"]] = ident
+
+            affectations = d.get("affectations", [])
+            if affectations and d.get("effacer"):
+                debut = min(a["date_debut"] for a in affectations)
+                fin = max(a["date_fin"] for a in affectations)
+                con.execute("DELETE FROM affectation WHERE date_fin >= ? AND date_debut <= ?", (debut, fin))
+            for brut in affectations:
+                art = con.execute("SELECT id FROM article WHERE numero_interne = ?",
+                                  (brut.get("numero_interne", ""),)).fetchone()
+                ch_id = correspondance.get(brut.get("cle")) or cle_vers_chantier(con, brut.get("cle", ""))
+                motif = None
+                if not art:
+                    motif = "article non importé"
+                elif not ch_id:
+                    motif = "chantier non importé"
+                else:
+                    debut, fin = brut["date_debut"], brut["date_fin"]
+                    if chevauchements(con, art["id"], debut, fin):
+                        motif = "chevauche une affectation déjà saisie"
+                if motif:
+                    compte["refusees"].append({**brut, "motif": motif})
                     continue
-                con.execute(f"INSERT INTO chantier ({', '.join(c)}) VALUES ({', '.join('?' * len(c))})",
-                            list(c.values()))
-                compte["chantiers"] += 1
+                con.execute("INSERT INTO affectation (article_id, chantier_id, date_debut, date_fin) VALUES (?, ?, ?, ?)",
+                            (art["id"], ch_id, brut["date_debut"], brut["date_fin"]))
+                compte["affectations"] += 1
             con.commit()
         except Exception:
             con.rollback()
             raise
         return jsonify(compte)
+
+
+def trouver_chantier_existant(con, c):
+    if c["cle_numero"]:
+        row = con.execute("SELECT id FROM chantier WHERE cle_numero = ?", (c["cle_numero"],)).fetchone()
+    else:
+        row = con.execute("SELECT id FROM chantier WHERE cle_numero = '' AND nom = ? COLLATE NOCASE", (c["nom"],)).fetchone()
+    return row["id"] if row else None
+
+
+def cle_vers_chantier(con, cle):
+    if cle.startswith("NOM:"):
+        row = con.execute("SELECT id FROM chantier WHERE cle_numero = '' AND UPPER(nom) = ?", (cle[4:],)).fetchone()
+    else:
+        row = con.execute("SELECT id FROM chantier WHERE cle_numero = ?", (cle,)).fetchone()
+    return row["id"] if row else None
 
 
 # --------------------------------------------------------------------------
@@ -781,3 +839,128 @@ def enregistrer_affectations(app):
             con.rollback()
             raise ErreurApi("Annulation impossible : un article ou un chantier concerné a été supprimé entre-temps.")
         return jsonify(ok=True)
+
+
+# --------------------------------------------------------------------------
+# Exports
+# --------------------------------------------------------------------------
+
+TYPES = {
+    "pdf": "application/pdf",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+
+
+def telechargement(contenu, nom, extension, en_ligne=False):
+    disposition = "inline" if en_ligne else "attachment"
+    return Response(contenu, mimetype=TYPES[extension],
+                    headers={"Content-Disposition": f'{disposition}; filename="{nom}"', "Cache-Control": "no-store"})
+
+
+def enregistrer_exports(app):
+    @app.get("/api/export/mois/<int:annee>/<int:mois>.<extension>")
+    def export_mois_fichier(annee, mois, extension):
+        if not 1 <= mois <= 12 or extension not in ("pdf", "xlsx"):
+            raise ErreurApi("Mois ou format inconnu.", 404)
+        fabrique = export_mois.pdf_mois if extension == "pdf" else export_mois.excel_mois
+        contenu = fabrique(db(), annee, mois)
+        return telechargement(contenu, export_mois.nom_fichier(annee, mois, extension), extension,
+                              en_ligne=request.args.get("voir") == "1")
+
+
+    @app.get("/api/export/inventaire.xlsx")
+    def export_inventaire():
+        con = db()
+        rows = con.execute(REQUETE_ARTICLES + " ORDER BY c.ordre, c.id, a.ordre, a.id", (aujourdhui(),)).fetchall()
+        lignes = []
+        for r in rows:
+            a = article_dict(r)
+            x = a["aujourdhui"]
+            lieu = (" – ".join(v for v in (x["chantier_numero"], x["chantier_nom"], x["responsable"]) if v)
+                    if x else ("Disponible" if a["statut"] == "actif" else ""))
+            lignes.append([a["categorie_nom"], a["numero_interne"], a["designation"], a["code_compta"],
+                           base.STATUTS[a["statut"]], a["marque"], a["modele"], a["numero_serie"],
+                           date_ou_vide(a["date_achat"]), a["prix_chf"], a["fournisseur"], date_ou_vide(a["fin_garantie"]),
+                           a["parent_numero"] or "", lieu, a["notes"]])
+        entetes = ["Catégorie", "N° interne", "Désignation", "Code compta", "Statut", "Marque", "Modèle", "N° de série",
+                   "Date d'achat", "Prix (CHF)", "Fournisseur", "Fin de garantie", "Accessoire de",
+                   "Où est-il aujourd'hui ?", "Notes"]
+        contenu = classeur_simple("Inventaire", entetes, lignes, dates=[8, 11], montants=[9])
+        return telechargement(contenu, f"inventaire_{aujourdhui()}.xlsx", "xlsx")
+
+    @app.get("/api/export/affectations.xlsx")
+    def export_affectations():
+        rows = db().execute(
+            """SELECT a.numero_interne, c.nom AS categorie, a.code_compta, ch.numero, ch.nom,
+                      COALESCE(NULLIF(af.responsable, ''), ch.responsable) AS responsable, ch.facturable,
+                      af.date_debut, af.date_fin, af.remarque
+               FROM affectation af JOIN article a ON a.id = af.article_id JOIN categorie c ON c.id = a.categorie_id
+               JOIN chantier ch ON ch.id = af.chantier_id ORDER BY af.date_debut, c.ordre, a.ordre""").fetchall()
+        lignes = [[r["numero_interne"], r["categorie"], r["code_compta"], r["numero"], r["nom"], r["responsable"],
+                   "Oui" if r["facturable"] else "Non", date_ou_vide(r["date_debut"]), date_ou_vide(r["date_fin"]),
+                   (dt.date.fromisoformat(r["date_fin"]) - dt.date.fromisoformat(r["date_debut"])).days + 1, r["remarque"]]
+                  for r in rows]
+        entetes = ["N° interne", "Catégorie", "Code compta", "N° chantier", "Chantier", "Responsable", "Facturable",
+                   "Du", "Au", "Nombre de jours", "Remarque"]
+        contenu = classeur_simple("Affectations", entetes, lignes, dates=[7, 8])
+        return telechargement(contenu, f"affectations_{aujourdhui()}.xlsx", "xlsx")
+
+    @app.get("/api/sauvegarde")
+    def sauvegarde_telecharger():
+        fichier = tempfile.TemporaryFile()
+        sauvegarde.creer_zip(fichier)
+        fichier.seek(0)
+        return send_file(fichier, mimetype="application/zip", as_attachment=True,
+                         download_name=sauvegarde.nom_sauvegarde(), max_age=0)
+
+    @app.post("/api/restauration")
+    def sauvegarde_restaurer():
+        fichier = request.files.get("fichier")
+        if not fichier or not fichier.filename:
+            raise ErreurApi("Aucun fichier reçu.")
+        with tempfile.TemporaryDirectory() as dossier:
+            chemin = f"{dossier}/sauvegarde.zip"
+            fichier.save(chemin)
+            if "con" in g:  # fermer la connexion avant de remplacer le fichier de la base
+                g.pop("con").close()
+            try:
+                securite = sauvegarde.restaurer_zip(chemin)
+            except sauvegarde.ErreurSauvegarde as e:
+                raise ErreurApi(str(e))
+        with VERROU:
+            PILE_ANNULATION.clear()
+        return jsonify(ok=True, securite=securite.name)
+
+
+def date_ou_vide(iso):
+    return dt.date.fromisoformat(iso) if iso else None
+
+
+def classeur_simple(titre, entetes, lignes, dates=(), montants=()):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
+    wb = Workbook()
+    ws = wb.active
+    ws.title = titre
+    ws.append(entetes)
+    for c in ws[1]:
+        c.font = Font(bold=True, color="FFFFFF")
+        c.fill = PatternFill("solid", fgColor="2B2F36")
+    for ligne in lignes:
+        ws.append(ligne)
+    for i, entete in enumerate(entetes, start=1):
+        largeur = max([len(str(entete))] + [len(str(l[i - 1])) for l in lignes if l[i - 1] is not None] + [8])
+        ws.column_dimensions[get_column_letter(i)].width = min(largeur + 2, 50)
+    for col in dates:
+        for r in range(2, len(lignes) + 2):
+            ws.cell(r, col + 1).number_format = "dd.mm.yyyy"
+    for col in montants:
+        for r in range(2, len(lignes) + 2):
+            ws.cell(r, col + 1).number_format = '#,##0.00 "CHF"'
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = ws.dimensions
+    import io
+    tampon = io.BytesIO()
+    wb.save(tampon)
+    return tampon.getvalue()

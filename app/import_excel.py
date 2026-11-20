@@ -7,6 +7,7 @@ Structure attendue (une seule feuille) :
 - affectations = cellules fusionnées horizontalement, texte « n° chantier – nom – responsable ».
 """
 import colorsys
+import datetime as dt
 import re
 from collections import OrderedDict
 from xml.etree import ElementTree
@@ -105,6 +106,7 @@ def lire_classeur(chemin_ou_fichier):
     categories = []
     articles = []
     lignes_articles = set()
+    lignes_numero = {}
     categorie, fin_categorie, compteur_vides = None, 0, 0
     for r in range(LIGNE_DEBUT, feuille.max_row + 1):
         valeur_a = feuille.cell(r, 1).value
@@ -125,6 +127,7 @@ def lire_classeur(chemin_ou_fichier):
             numero = f"{categorie.title()} {compteur_vides}"
         if isinstance(code, float) and code.is_integer():
             code = int(code)
+        lignes_numero[r] = re.sub(r"\s+", " ", str(numero)).strip()
         articles.append({
             "categorie": categorie,
             "numero_interne": re.sub(r"\s+", " ", str(numero)).strip(),
@@ -137,8 +140,15 @@ def lire_classeur(chemin_ou_fichier):
         raise ErreurImport("Aucun article trouvé : vérifiez que c'est bien le fichier du planning "
                            "(catégories en colonne A, n° interne en colonne C à partir de la ligne 4).")
 
-    # Textes des barres : cellules fusionnées et cellules isolées dans la zone des jours.
-    textes = []
+    # Date du premier jour (cellule D2) : chaque colonne suivante ajoute un jour.
+    premier = feuille.cell(2, COLONNE_JOURS).value
+    if isinstance(premier, dt.datetime):
+        premier = premier.date()
+    if not isinstance(premier, dt.date):
+        premier = None
+
+    # Barres : cellules fusionnées et cellules isolées dans la zone des jours.
+    segments = []
     deja = set()
     for f in fusions:
         if f.min_row in lignes_articles and f.min_col >= COLONNE_JOURS:
@@ -147,16 +157,45 @@ def lire_classeur(chemin_ou_fichier):
                 for c in range(f.min_col, f.max_col + 1):
                     deja.add((r, c))
             if v not in (None, ""):
-                textes.append(str(v))
+                segments.append([f.min_row, f.min_col, f.max_col, re.sub(r"\s+", " ", str(v)).strip()])
     for r in lignes_articles:
         for c in range(COLONNE_JOURS, feuille.max_column + 1):
             if (r, c) in deja:
                 continue
             v = feuille.cell(r, c).value
             if v not in (None, "") and not (isinstance(v, str) and v.startswith("=")):
-                textes.append(str(v))
+                segments.append([r, c, c, re.sub(r"\s+", " ", str(v)).strip()])
 
-    return {"categories": categories, "articles": articles, "chantiers": regrouper_chantiers(textes)}
+    # L'Excel coupe les barres à chaque fin de mois : on recolle les morceaux
+    # consécutifs qui portent le même texte.
+    segments.sort()
+    barres = []
+    for seg in segments:
+        dernier = barres[-1] if barres else None
+        if dernier and dernier[0] == seg[0] and dernier[2] + 1 == seg[1] and dernier[3] == seg[3]:
+            dernier[2] = seg[2]
+        else:
+            barres.append(list(seg))
+
+    chantiers = regrouper_chantiers([b[3] for b in barres])
+    affectations = []
+    if premier:
+        for r, c1, c2, texte in barres:
+            numero, nom, _ = decouper_texte(texte)
+            affectations.append({
+                "numero_interne": lignes_numero[r],
+                "date_debut": (premier + dt.timedelta(days=c1 - COLONNE_JOURS)).isoformat(),
+                "date_fin": (premier + dt.timedelta(days=c2 - COLONNE_JOURS)).isoformat(),
+                "texte": texte,
+                "cle": cle_chantier(numero, nom),
+            })
+
+    return {"categories": categories, "articles": articles, "chantiers": chantiers,
+            "affectations": affectations, "dates_trouvees": premier is not None}
+
+
+def cle_chantier(numero, nom):
+    return base.cle_numero(numero) or "NOM:" + nom.upper()
 
 
 def regrouper_chantiers(textes):
@@ -164,8 +203,8 @@ def regrouper_chantiers(textes):
     for texte in textes:
         texte_net = re.sub(r"\s+", " ", texte).strip()
         numero, nom, certain = decouper_texte(texte_net)
-        cle = base.cle_numero(numero) or "NOM:" + nom.upper()
-        g = groupes.setdefault(cle, {"numero": numero, "noms": [], "textes": [], "certain": True})
+        cle = cle_chantier(numero, nom)
+        g = groupes.setdefault(cle, {"cle": cle, "numero": numero, "noms": [], "textes": [], "certain": True})
         if texte_net not in g["textes"]:
             g["textes"].append(texte_net)
         g["noms"].append(nom)
@@ -177,6 +216,7 @@ def regrouper_chantiers(textes):
         nom = max(dict.fromkeys(noms), key=noms.count)
         variantes = len({n.upper() for n in noms}) > 1
         chantiers.append({
+            "cle": g["cle"],
             "numero": g["numero"],
             "nom": nom,
             "textes": g["textes"],

@@ -32,7 +32,8 @@ export default async function pageParc(zone) {
     <div class="titre-page">
       <h1>Parc matériel</h1>
       <span class="espace"></span>
-      <a class="bouton" href="#/preremplir">Pré-remplir depuis l'Excel</a>
+      <a class="bouton" href="#/preremplir">Importer depuis l'Excel</a>
+      <a class="bouton" href="/api/export/inventaire.xlsx">⬇ Excel</a>
       <button class="primaire" id="ajouter">＋ Ajouter un matériel</button>
     </div>
     <div class="outils">
@@ -101,7 +102,7 @@ export default async function pageParc(zone) {
         <td><span class="echantillon" style="background:${esc(a.couleur)}"></span></td>
         <td>${esc(a.categorie_nom)}</td>
         <td><strong>${esc(a.numero_interne)}</strong></td>
-        <td>${esc(a.designation)}</td>
+        <td>${esc(a.designation)}${a.parent_numero ? ` <span class="doux">(accessoire de ${esc(a.parent_numero)})</span>` : ""}</td>
         <td>${esc(a.code_compta)}</td>
         <td>${esc(`${a.marque} ${a.modele}`.trim())}</td>
         <td>${esc(a.numero_serie)}</td>
