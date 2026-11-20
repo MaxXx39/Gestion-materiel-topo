@@ -66,7 +66,7 @@ def couleur_cellule(cellule, theme):
 # ---------------------------------------------------------------- Chantiers
 
 def decouper_texte(texte):
-    """« 858 926 Gilly - M Santos » -> (« 858 926 », « Gilly », certain ?)."""
+    """« 123 456 Ville - M Dupont » -> (« 123 456 », « Ville », certain ?)."""
     texte = re.sub(r"\s+", " ", str(texte)).strip()
     m = RE_NUMERO.match(texte)
     if not m:

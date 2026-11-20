@@ -69,9 +69,9 @@ export function fenetreChantier(chantier = null, valeursInitiales = {}) {
       <form method="dialog" autocomplete="off">
         <h2>${chantier ? "Modifier le chantier" : "Nouveau chantier"}</h2>
         <div class="champs">
-          <label class="champ"><span>N° de chantier</span><input name="numero" placeholder="ex. 858 926"></label>
-          <label class="champ"><span>Nom <b class="obligatoire">*</b></span><input name="nom" required placeholder="ex. Gilly"></label>
-          <label class="champ"><span>Responsable / conducteur</span><input name="responsable" placeholder="ex. M. Santos"></label>
+          <label class="champ"><span>N° de chantier</span><input name="numero" placeholder="ex. 123 456"></label>
+          <label class="champ"><span>Nom <b class="obligatoire">*</b></span><input name="nom" required placeholder="ex. Nom du chantier"></label>
+          <label class="champ"><span>Responsable / conducteur</span><input name="responsable" placeholder="ex. M. Dupont"></label>
           <div class="champ"><span>&nbsp;</span>
             <label class="case"><input type="checkbox" name="facturable"> Facturable</label></div>
           <label class="champ large"><span>Notes</span><textarea name="notes" rows="2"></textarea></label>
