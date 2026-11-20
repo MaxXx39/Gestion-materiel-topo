@@ -11,6 +11,7 @@ from werkzeug.utils import secure_filename
 import base
 
 DOSSIER_STATIC = Path(__file__).resolve().parent / "static"
+IDENTITE = "planning-materiel-topo"
 EXTENSIONS_PHOTO = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 
 
@@ -115,6 +116,11 @@ def creer_app():
             messages = {404: "Introuvable.", 413: "Fichier trop volumineux (200 Mo maximum)."}
             return jsonify(erreur=messages.get(e.code, e.description)), e.code
         return e
+
+    @app.get("/api/identite")
+    def identite():
+        # Permet au lanceur de reconnaître cette application parmi d'autres sur le PC.
+        return jsonify(application=IDENTITE)
 
     @app.get("/")
     def accueil():
