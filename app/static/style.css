@@ -1,12 +1,16 @@
 :root {
-  --fond: #f4f6f8;
+  --fond: #eceef1;
   --carte: #ffffff;
-  --texte: #1d2733;
-  --texte-doux: #5f6b7a;
-  --bord: #d6dce3;
-  --bord-fort: #b5bfca;
-  --primaire: #1f4e79;
-  --primaire-clair: #e6eef6;
+  --texte: #16191d;
+  --texte-doux: #5b636e;
+  --bord: #d6dbe1;
+  --bord-fort: #aeb5be;
+  --sombre: #1c1f24;
+  --sombre-2: #2b2f36;
+  --accent: #f2a20c;
+  --accent-fonce: #d68d00;
+  --primaire: #1c1f24;
+  --primaire-clair: #fff3dc;
   --danger: #b42318;
   --danger-clair: #fdecea;
   --ok: #1e7b34;
@@ -24,22 +28,17 @@ h1 { font-size: 20px; margin: 0; }
 h2 { font-size: 16px; margin: 0 0 12px; }
 h3 { font-size: 14px; margin: 0 0 8px; color: var(--texte-doux); text-transform: uppercase; letter-spacing: .03em; }
 
-/* ---- En-tête ---- */
-.entete {
-  display: flex; align-items: center; gap: 32px;
-  background: var(--primaire); color: #fff; padding: 0 24px; height: 52px;
-  position: sticky; top: 0; z-index: 20;
-}
-.logo { font-weight: 700; font-size: 16px; }
-.entete nav { display: flex; gap: 4px; height: 100%; }
-.entete nav a {
-  color: #dbe6f1; text-decoration: none; padding: 0 14px; display: flex; align-items: center;
-  border-bottom: 3px solid transparent;
-}
-.entete nav a:hover { color: #fff; background: rgba(255,255,255,.08); }
-.entete nav a.actif { color: #fff; border-bottom-color: #f4b183; font-weight: 600; }
+/* ---- Menu latéral ---- */
+.menu { position: fixed; left: 0; top: 0; bottom: 0; width: 190px; background: var(--sombre); color: #fff; z-index: 20; }
+.logo { padding: 20px 18px; font-size: 17px; font-weight: 700; border-bottom: 1px solid #2e333b; }
+.logo small { display: block; font-size: 11px; font-weight: 400; color: #8a929c; margin-top: 2px; }
+.menu nav { display: flex; flex-direction: column; padding: 10px 0; }
+.menu nav a { color: #b9c0c8; text-decoration: none; padding: 12px 18px; border-left: 4px solid transparent; }
+.menu nav a:hover { color: #fff; background: #23272d; }
+.menu nav a.actif { color: #fff; background: #272b31; border-left-color: var(--accent); font-weight: 600; }
 
-main { padding: 20px 24px 60px; max-width: 1500px; margin: 0 auto; }
+main { margin-left: 190px; padding: 20px 24px 60px; max-width: 1690px; }
+.titre-page h1 { text-transform: uppercase; letter-spacing: .02em; }
 
 /* ---- Barre de titre d'une page ---- */
 .titre-page { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -50,14 +49,14 @@ main { padding: 20px 24px 60px; max-width: 1500px; margin: 0 auto; }
 
 /* ---- Boutons et champs ---- */
 button, .bouton {
-  font: inherit; cursor: pointer; border-radius: var(--rayon);
+  font: inherit; cursor: pointer; border-radius: 4px;
   border: 1px solid var(--bord-fort); background: #fff; color: var(--texte);
   padding: 6px 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
   white-space: nowrap;
 }
 button:hover, .bouton:hover { background: #f0f3f6; }
-button.primaire { background: var(--primaire); border-color: var(--primaire); color: #fff; }
-button.primaire:hover { background: #193f63; }
+button.primaire { background: var(--accent); border-color: var(--accent-fonce); color: var(--sombre); font-weight: 600; }
+button.primaire:hover { background: #e09400; }
 button.danger { color: var(--danger); border-color: #e7b4ae; }
 button.danger:hover { background: var(--danger-clair); }
 button.lien { border: none; background: none; color: var(--primaire); padding: 2px 4px; }
@@ -70,7 +69,7 @@ input, select, textarea {
   padding: 6px 8px; background: #fff; width: 100%;
 }
 input:focus, select:focus, textarea:focus, button:focus-visible {
-  outline: 2px solid #7aa7d6; outline-offset: 0; border-color: #7aa7d6;
+  outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent-fonce);
 }
 input.invalide { border-color: var(--danger); background: var(--danger-clair); }
 textarea { resize: vertical; min-height: 70px; }
@@ -84,7 +83,7 @@ label.case input { width: auto; }
 .colonne { display: flex; flex-direction: column; gap: 16px; }
 .champs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
 .champ { display: flex; flex-direction: column; gap: 4px; }
-.champ.large { grid-column: 1 / -1; }
+.champ.large, .large { grid-column: 1 / -1; }
 .champ > span { font-size: 12px; color: var(--texte-doux); font-weight: 600; }
 .champ > span .obligatoire { color: var(--danger); }
 .champ small { color: var(--texte-doux); font-size: 12px; }
@@ -114,9 +113,10 @@ label.case input { width: auto; }
 /* ---- Tableaux ---- */
 table.liste { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--bord); border-radius: 8px; overflow: hidden; }
 table.liste th, table.liste td { padding: 7px 10px; text-align: left; border-bottom: 1px solid #e8ecf0; vertical-align: middle; }
-table.liste th { background: #eef2f6; font-size: 12px; color: var(--texte-doux); font-weight: 600; user-select: none; white-space: nowrap; }
+table.liste th { background: var(--sombre-2); font-size: 12px; color: #e3e6ea; font-weight: 600; user-select: none; white-space: nowrap; }
 table.liste th.triable { cursor: pointer; }
-table.liste th.triable:hover { color: var(--texte); }
+table.liste th.triable:hover { color: #fff; }
+table.liste th .fleche { color: var(--accent); }
 table.liste tbody tr.cliquable { cursor: pointer; }
 table.liste tbody tr.cliquable:hover { background: var(--primaire-clair); }
 table.liste tr.inactif td { color: var(--texte-doux); }
@@ -145,7 +145,9 @@ ul.documents li a { flex: 1; overflow: hidden; text-overflow: ellipsis; white-sp
 
 /* ---- Catégories ---- */
 .bloc-categorie { margin-bottom: 14px; }
-.bloc-categorie .tete { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #eef2f6; border-bottom: 1px solid var(--bord); }
+.bloc-categorie .tete { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--sombre-2); color: #fff; }
+.bloc-categorie .tete button { background: transparent; color: #e3e6ea; border-color: #555b64; }
+.bloc-categorie .tete button:hover { background: #3a3f47; }
 .bloc-categorie .tete strong { font-size: 15px; }
 .bloc-categorie .tete .espace { flex: 1; }
 .bloc-categorie { padding: 0; overflow: hidden; }
@@ -174,6 +176,8 @@ dialog .actions { margin-top: 18px; justify-content: flex-end; }
 .message-attente h1 { color: var(--texte); margin-bottom: 8px; }
 
 @media (max-width: 900px) {
+  .menu { position: static; width: auto; }
+  main { margin-left: 0; }
   .grille-fiche { grid-template-columns: 1fr; }
   .champs { grid-template-columns: 1fr; }
 }
