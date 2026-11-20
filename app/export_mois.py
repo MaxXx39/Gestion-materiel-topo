@@ -25,9 +25,10 @@ DOSSIER_POLICES = Path(__file__).resolve().parent / "polices"
 try:
     pdfmetrics.registerFont(TTFont("Carlito", str(DOSSIER_POLICES / "Carlito-Regular.ttf")))
     pdfmetrics.registerFont(TTFont("Carlito-Gras", str(DOSSIER_POLICES / "Carlito-Bold.ttf")))
-    POLICE, POLICE_GRAS = "Carlito", "Carlito-Gras"
+    pdfmetrics.registerFont(TTFont("Carlito-Italique", str(DOSSIER_POLICES / "Carlito-Italic.ttf")))
+    POLICE, POLICE_GRAS, POLICE_ITALIQUE = "Carlito", "Carlito-Gras", "Carlito-Italique"
 except Exception:  # police absente : repli sur Helvetica
-    POLICE, POLICE_GRAS = "Helvetica", "Helvetica-Bold"
+    POLICE, POLICE_GRAS, POLICE_ITALIQUE = "Helvetica", "Helvetica-Bold", "Helvetica-Oblique"
 
 
 # ------------------------------------------------------------------ Données
@@ -52,7 +53,9 @@ def donnees_mois(con, annee, mois):
             groupes.append({"id": a["categorie_id"], "nom": a["categorie_nom"], "articles": [a]})
     for af in affectations:
         resp = af["responsable"] or af["chantier_responsable"]
-        af["libelle"] = " – ".join(x for x in (af["chantier_numero"], af["chantier_nom"], resp) if x)
+        af["principal"] = " – ".join(x for x in (af["chantier_numero"], af["chantier_nom"]) if x)
+        af["resp"] = resp or ""
+        af["libelle"] = " – ".join(x for x in (af["principal"], af["resp"]) if x)
         af["j1"] = 1 if af["date_debut"] < debut else int(af["date_debut"][8:])
         af["j2"] = n if af["date_fin"] > fin else int(af["date_fin"][8:])
     return {"annee": annee, "mois": mois, "n": n, "groupes": groupes, "affectations": affectations}
@@ -133,6 +136,39 @@ def pdf_mois(con, annee, mois):
         c.setFillColor(HexColor(fond) if isinstance(fond, str) else fond)
         c.rect(x, Y(t + h), w, h, stroke=0, fill=1)
 
+    gris_resp = Color(.3, .3, .3)
+
+    def texte_barre(af, nb, taille, largeur):
+        """Renvoie les morceaux de texte qui tiennent dans « largeur », ou [] si même le n° ne tient pas."""
+        jours_txt = (f" · {nb} j", POLICE, taille, black)
+        resp = (f" – {af['resp']}", POLICE_ITALIQUE, taille - 0.8, gris_resp) if af["resp"] else None
+        essais = []
+        if resp:
+            essais.append([(af["principal"], POLICE, taille, black), resp, jours_txt])
+        essais.append([(af["principal"], POLICE, taille, black), jours_txt])
+        for morceaux in essais:
+            if sum(pdfmetrics.stringWidth(m[0], m[1], m[2]) for m in morceaux) <= largeur:
+                return morceaux
+        place = largeur - pdfmetrics.stringWidth(jours_txt[0], POLICE, taille)
+        court = couper_texte(af["principal"], POLICE, taille, place)
+        if place > 18 and court:
+            return [(court, POLICE, taille, black), jours_txt]
+        return []
+
+    def dessiner_morceaux(x, t_ligne, morceaux, centre):
+        largeur = sum(pdfmetrics.stringWidth(m[0], m[1], m[2]) for m in morceaux)
+        x = x - largeur / 2 if centre else x
+        for texte, police, taille, couleur in morceaux:
+            c.setFillColor(couleur)
+            c.setFont(police, taille)
+            c.drawString(x, Y(t_ligne), texte)
+            x += pdfmetrics.stringWidth(texte, police, taille)
+
+    def prochain_debut(liste, af):
+        """Jour (dans le mois) où commence l'affectation suivante sur la même ligne, ou None."""
+        suivants = [x["j1"] for x in liste if x["j1"] > af["j2"]]
+        return min(suivants) if suivants else None
+
     def triangle(x_pointe, y_milieu, sens, couleur):
         """Triangle plein ; sens -1 = pointe vers la gauche, +1 = vers la droite."""
         chemin = c.beginPath()
@@ -210,14 +246,24 @@ def pdf_mois(con, annee, mois):
                     triangle(bx1 + 2, milieu, -1, fonce(a["couleur"]))
                 if apres:
                     triangle(bx2 - 2, milieu, 1, fonce(a["couleur"]))
-                suffixe = f" · {nb} j"
                 taille_b = 7 if bh >= 11 else 6
                 retrait = 8 * (avant + apres)
-                place = bx2 - bx1 - 4 - retrait - pdfmetrics.stringWidth(suffixe, POLICE, taille_b)
-                texte = couper_texte(af["libelle"], POLICE, taille_b, place) + suffixe if place > 12 \
-                    else couper_texte(f"{nb} j", POLICE, taille_b, bx2 - bx1 - 2 - retrait)
-                decalage = 4 * (avant - apres)
-                ecrire((bx1 + bx2) / 2 + decalage, t + h_ligne / 2 + taille_b * 0.35, texte, POLICE, taille_b, centre=True)
+                y_texte = t + h_ligne / 2 + taille_b * 0.35
+                largeur_dispo = bx2 - bx1 - 4 - retrait
+                morceaux = texte_barre(af, nb, taille_b, largeur_dispo)
+                if morceaux:
+                    x_centre = (bx1 + bx2) / 2 + 4 * (avant - apres)
+                    dessiner_morceaux(x_centre, y_texte, morceaux, centre=True)
+                else:
+                    # Barre trop courte (1 ou 2 jours) : texte écrit à droite si les jours suivants sont libres.
+                    fin_libre = prochain_debut(par_article.get(a["id"], []), af)
+                    place_dehors = (xj(fin_libre) if fin_libre else x1) - bx2 - 3
+                    dehors = texte_barre(af, nb, taille_b - 0.5, place_dehors)
+                    if dehors:
+                        dessiner_morceaux(bx2 + 2, y_texte, dehors, centre=False)
+                    else:
+                        dessiner_morceaux((bx1 + bx2) / 2, y_texte,
+                                          [(couper_texte(f"{nb} j", POLICE, taille_b, bx2 - bx1 - 2), POLICE, taille_b, black)], centre=True)
             t += h_ligne
             if i < len(g["articles"]) - 1:
                 trait(x_code, t, x1, t, 0.3, Color(.6, .6, .6))
@@ -271,6 +317,8 @@ def pdf_mois(con, annee, mois):
 def excel_mois(con, annee, mois):
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.cell.rich_text import CellRichText, TextBlock
+    from openpyxl.cell.text import InlineFont
     from openpyxl.utils import get_column_letter
 
     d = donnees_mois(con, annee, mois)
@@ -340,8 +388,13 @@ def excel_mois(con, annee, mois):
                 c1, c2 = 3 + af["j1"], 3 + af["j2"]
                 if c2 > c1:
                     ws.merge_cells(start_row=r, start_column=c1, end_row=r, end_column=c2)
-                cel = ws.cell(r, c1, af["libelle"])
-                cel.alignment = centre
+                if af["resp"]:
+                    cel = ws.cell(r, c1, CellRichText(TextBlock(InlineFont(rFont="Calibri", sz=8), af["principal"]),
+                                                      TextBlock(InlineFont(rFont="Calibri", sz=7, i=True, color="595959"),
+                                                                f" – {af['resp']}")))
+                else:
+                    cel = ws.cell(r, c1, af["principal"])
+                cel.alignment = centre if c2 > c1 else Alignment(horizontal="left", vertical="center")
                 cel.font = Font(name="Calibri", size=8)
                 for col in range(c1, c2 + 1):
                     ws.cell(r, col).fill = remplir(a["couleur"])

@@ -4,7 +4,8 @@ import {
   montantSaisi, PALETTE, couleurParDefaut, STATUTS, libelleChantier, zoneDepot,
 } from "../outils.js";
 
-const CHAMPS_TEXTE = ["numero_interne", "designation", "code_compta", "marque", "modele", "numero_serie", "fournisseur", "notes"];
+const CHAMPS_TEXTE = ["numero_interne", "designation", "code_compta", "marque", "modele", "numero_serie", "fournisseur", "notes",
+  "telephone", "swipos_numero", "swipos_mot_de_passe"];
 
 export default async function pageArticle(zone, [ident], params) {
   const nouveau = !ident || ident === "nouveau";
@@ -17,6 +18,7 @@ export default async function pageArticle(zone, [ident], params) {
     const source = await api("GET", `/api/articles/${params.get("copie")}`);
     const cat = categories.find((c) => c.id === source.categorie_id);
     article = { ...source, id: null, numero_interne: "", numero_serie: "", date_achat: null, photo: null, notes: "",
+      telephone: "", swipos_numero: "", swipos_mot_de_passe: "",
       statut: "actif", couleur: couleurParDefaut(cat?.nb_articles || 0) };
   } else {
     const cat = categories.find((c) => String(c.id) === params.get("cat")) || categories[0];
@@ -71,6 +73,13 @@ export default async function pageArticle(zone, [ident], params) {
               <label class="champ"><span>Prix (CHF)</span><input name="prix_chf" inputmode="decimal" placeholder="0.00"></label>
               <label class="champ"><span>Fin de garantie</span><input name="fin_garantie" class="date"></label>
               <span></span>
+              <label class="champ"><span>N° de téléphone (carte SIM)</span><input name="telephone" inputmode="tel" placeholder="ex. 079 123 45 67"></label>
+              <span></span>
+              <label class="champ"><span>N° Swipos</span><input name="swipos_numero" autocomplete="off"></label>
+              <label class="champ"><span>Mot de passe Swipos</span>
+                <div class="ligne-champ"><input name="swipos_mot_de_passe" type="password" autocomplete="new-password">
+                <button type="button" id="voir-mdp" title="Afficher / masquer">👁</button>
+                <button type="button" id="copier-mdp" title="Copier">⧉</button></div></label>
               <label class="champ large"><span>Notes</span><textarea name="notes"></textarea></label>
             </div>
           </div>
@@ -108,6 +117,14 @@ export default async function pageArticle(zone, [ident], params) {
   champ("date_achat").value = dateAffichee(article.date_achat);
   champ("fin_garantie").value = dateAffichee(article.fin_garantie);
   form.querySelectorAll("input.date").forEach(brancherChampDate);
+  zone.querySelector("#voir-mdp").onclick = () => {
+    const i = champ("swipos_mot_de_passe");
+    i.type = i.type === "password" ? "text" : "password";
+  };
+  zone.querySelector("#copier-mdp").onclick = async () => {
+    try { await navigator.clipboard.writeText(champ("swipos_mot_de_passe").value); notifier("Mot de passe copié."); }
+    catch { champ("swipos_mot_de_passe").type = "text"; champ("swipos_mot_de_passe").select(); }
+  };
   choisirCouleur(article.couleur || PALETTE[0]);
 
   // ---- Couleur

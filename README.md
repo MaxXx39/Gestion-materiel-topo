@@ -52,6 +52,9 @@ Le fichier est lu sur votre PC uniquement. Relancer l'import ne crée pas de dou
 - **Déplacer :** faites glisser une barre.
 - **Modifier :** cliquez sur une barre. Actions rapides : « Rendre au dépôt », « Changer de chantier à partir du… », « Couper en deux ».
 - **Chevauchement :** l'application demande s'il faut couper l'affectation existante, la remplacer ou annuler.
+- **Passer au mois suivant :** la première colonne (hachurée) montre le dernier jour du mois précédent. Tirez le bord droit d'une barre qui s'y termine pour la prolonger. Ou utilisez **« ↦ Prolonger … »** : toutes les affectations qui finissaient le dernier jour du mois précédent sont listées (cochées), et prolongées d'un coup jusqu'à la date choisie (elles s'arrêtent la veille de l'affectation suivante s'il y en a une).
+- **Responsables :** ceux déjà saisis sont proposés automatiquement. Dans les barres, le responsable est écrit plus petit, en italique.
+- **Affectation d'un ou deux jours :** le texte est écrit à droite de la barre si les jours suivants sont libres ; sinon seul le n° de chantier s'affiche (texte complet en survolant la barre).
 - **Annuler une erreur :** bouton « ↶ Annuler » ou Ctrl+Z (jusqu'à 30 retours, tant que l'application reste ouverte).
 - **Repérer :** tapez un chantier ou un article dans le champ « Repérer » pour faire ressortir ses barres.
 - **Vue année :** bouton « Année » ; cliquez sur un mois pour l'ouvrir.
@@ -69,9 +72,11 @@ Les fichiers arrivent dans votre dossier **Téléchargements**. Si le navigateur
 ## 7. Parc, fiches et tableau de bord
 
 - **Parc :** recherche, filtres, tri, colonne « Où est-il aujourd'hui ? », bouton « ⬇ Excel » (inventaire).
-- **Fiche article :** photo, documents (notice, certificat, facture…), historique des affectations, accessoires (champ « Accessoire de » ou bouton « ＋ Ajouter un accessoire »). « Dupliquer » reprend la fiche pour un matériel identique.
+- **Fiche article :** n° de téléphone (carte SIM), n° et mot de passe Swipos (bouton 👁 pour l'afficher, ⧉ pour le copier), photo, documents (notice, certificat, facture…), historique des affectations, accessoires (champ « Accessoire de » ou bouton « ＋ Ajouter un accessoire »). « Dupliquer » reprend la fiche pour un matériel identique.
 - **Statut :** un article « En réparation », « Perdu » ou « Réformé » disparaît du planning (case « Inactifs » pour le revoir), son historique est conservé.
 - **Tableau de bord :** nombre d'articles, affectés, disponibles, en réparation, valeur du parc, fins d'affectation dans les 7 jours.
+
+- **Couleurs :** une palette de 20 couleurs est proposée dans chaque fiche. Le bouton **« 🎨 Recolorer tout le parc »** (menu Catégories) les applique à tous les articles dans l'ordre du planning.
 
 ## 8. Sauvegarder et restaurer
 
@@ -79,7 +84,9 @@ Menu **Sauvegarde** :
 
 - **Sauvegarder :** « Télécharger une sauvegarde » crée un fichier `.zip` avec **toutes** les données (photos et documents compris). Rangez-le sur une clé USB ou un disque réseau. Conseil : une fois par mois, après l'envoi à la compta.
 - **Restaurer :** glissez un fichier de sauvegarde `.zip` dans la zone « Restaurer ». Une copie de sécurité des données actuelles est faite automatiquement avant (`donnees\sauvegardes_auto`).
-- **Exports Excel :** inventaire du parc et liste complète des affectations.
+- **Exports Excel :** inventaire du parc (avec n° de téléphone et n° Swipos ; le mot de passe Swipos n'est pas exporté) et liste complète des affectations.
+
+> Le mot de passe Swipos est enregistré dans le fichier de données, sur votre PC et dans vos sauvegardes : rangez les sauvegardes en lieu sûr.
 
 ## 9. Où sont mes données ?
 

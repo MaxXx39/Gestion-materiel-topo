@@ -84,6 +84,12 @@ MIGRATIONS = [
     CREATE INDEX affectation_article ON affectation(article_id, date_debut);
     CREATE INDEX affectation_chantier ON affectation(chantier_id);
     """,
+    # 2 : téléphone (carte SIM) et accès Swipos
+    """
+    ALTER TABLE article ADD COLUMN telephone TEXT NOT NULL DEFAULT '';
+    ALTER TABLE article ADD COLUMN swipos_numero TEXT NOT NULL DEFAULT '';
+    ALTER TABLE article ADD COLUMN swipos_mot_de_passe TEXT NOT NULL DEFAULT '';
+    """,
 ]
 
 

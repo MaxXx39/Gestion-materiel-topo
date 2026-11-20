@@ -240,7 +240,6 @@ table.liste td input { padding: 4px 6px; }
   grid-row: 1; margin: 3px 1px; border-radius: 2px; border: 1px solid; position: relative; z-index: 2;
   display: flex; align-items: center; justify-content: center; padding: 0 6px;
   font-size: 11.5px; font-weight: 600; overflow: hidden; white-space: nowrap; cursor: grab;
-  filter: saturate(1.6) brightness(.98);
 }
 .barre:hover { box-shadow: 0 1px 4px rgba(0,0,0,.3); }
 .barre .pg, .barre .pd { position: absolute; top: 0; bottom: 0; width: 8px; cursor: ew-resize; z-index: 3; }
@@ -302,3 +301,25 @@ a.primaire-lien:hover { background: #e09400; }
 .export-choix a { justify-content: flex-start; padding: 10px 12px; }
 .export-choix a small { color: var(--texte-doux); margin-left: auto; }
 @media (max-width: 1100px) { .tuiles { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---- Planning : dernier jour du mois précédent, responsables, barres courtes ---- */
+.pl-tete .j.prec { background: repeating-linear-gradient(135deg, #3a3f47 0 4px, #2b2f36 4px 8px); color: #8a929c; }
+.pl-tete .j.prec b { color: #aab2bc; }
+.pl-ligne .c.prec { background: repeating-linear-gradient(135deg, #eef0f3 0 4px, #e2e5e9 4px 8px); border-right: 2px solid #9aa3ad; }
+.prec-legende { background: repeating-linear-gradient(135deg, #eef0f3 0 3px, #cfd4da 3px 6px) !important; }
+.barre.dans-prec { opacity: .85; }
+.barre .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.barre .resp { font-weight: 400; font-size: 10.5px; font-style: italic; opacity: .8; }
+.liste-prolonger { max-height: 320px; overflow: auto; border: 1px solid var(--bord); border-radius: 4px; padding: 6px 10px; }
+.liste-prolonger label { display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid #f0f2f4; }
+
+.palette-apercu { display: flex; gap: 3px; margin: -4px 0 14px; }
+.palette-apercu span { width: 26px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,.15); }
+.palette { max-width: 520px; }
+
+.barre.courte-dehors { overflow: visible; }
+.barre .txt-dehors {
+  position: absolute; left: calc(100% + 5px); top: 50%; transform: translateY(-50%);
+  color: var(--texte); white-space: nowrap; pointer-events: none; font-weight: 600;
+  background: rgba(255,255,255,.85); padding: 0 3px; border-radius: 2px;
+}

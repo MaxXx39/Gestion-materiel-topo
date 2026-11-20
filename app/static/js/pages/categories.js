@@ -1,5 +1,5 @@
 // Catégories et ordre d'affichage des articles (le même ordre sert au planning et au PDF).
-import { api, esc, notifier, erreur, confirmer, demanderTexte, badgeStatut } from "../outils.js";
+import { api, esc, notifier, erreur, confirmer, demanderTexte, badgeStatut, PALETTE } from "../outils.js";
 
 export default async function pageCategories(zone) {
   const [categories, articles] = await Promise.all([api("GET", "/api/categories"), api("GET", "/api/articles")]);
@@ -8,9 +8,11 @@ export default async function pageCategories(zone) {
     <div class="titre-page">
       <h1>Catégories et ordre</h1>
       <span class="espace"></span>
+      <button id="recolorer" title="Donne à chaque article une couleur de la palette, dans l'ordre du planning">🎨 Recolorer tout le parc</button>
       <button class="primaire" id="nouvelle">＋ Nouvelle catégorie</button>
     </div>
     <p class="doux">L'ordre ci-dessous est celui du planning et du PDF mensuel. Utilisez ▲ ▼ pour le modifier.</p>
+    <div class="palette-apercu">${PALETTE.map((c) => `<span style="background:${c}" title="${c}"></span>`).join("")}</div>
     <div id="blocs"></div>`;
 
   const blocs = zone.querySelector("#blocs");
@@ -40,6 +42,18 @@ export default async function pageCategories(zone) {
   }).join("") : `<div class="carte message-attente">Aucune catégorie. Créez-en une, par exemple « Canne GPS ».</div>`;
 
   const recharger = () => pageCategories(zone);
+
+  zone.querySelector("#recolorer").onclick = async () => {
+    const ok = await confirmer("Remplacer la couleur de tous les articles par celles de la palette (dans l'ordre du planning, "
+      + "deux lignes voisines n'ont jamais la même couleur) ? Vous pourrez ensuite changer une couleur dans la fiche de l'article.",
+    { titre: "Recolorer tout le parc", ok: "Recolorer" });
+    if (!ok) return;
+    try {
+      const r = await api("POST", "/api/articles/recolorer", { palette: PALETTE });
+      notifier(`${r.nb} article(s) recoloré(s).`);
+      recharger();
+    } catch (e) { erreur(e); }
+  };
 
   zone.querySelector("#nouvelle").onclick = async () => {
     const nom = await demanderTexte("Nouvelle catégorie", "", "Nom de la catégorie");

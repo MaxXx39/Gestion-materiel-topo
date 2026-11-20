@@ -285,6 +285,9 @@ def lire_article(donnees):
         "fournisseur": texte(d, "fournisseur", False, "Fournisseur", 200),
         "fin_garantie": date_iso(d, "fin_garantie", "Fin de garantie"),
         "notes": texte(d, "notes", False, "Notes", 5000),
+        "telephone": texte(d, "telephone", False, "N° de téléphone", 50),
+        "swipos_numero": texte(d, "swipos_numero", False, "N° Swipos", 100),
+        "swipos_mot_de_passe": texte(d, "swipos_mot_de_passe", False, "Mot de passe Swipos", 200),
         "statut": statut,
         "parent_id": parent_id,
     }
@@ -375,6 +378,20 @@ def enregistrer_articles(app):
         for f in fichiers:
             supprimer_fichier("documents", f)
         return jsonify(ok=True)
+
+    @app.post("/api/articles/recolorer")
+    def articles_recolorer():
+        """Attribue les couleurs de la palette dans l'ordre du planning (deux lignes voisines n'ont jamais la même)."""
+        palette = [couleur({"c": c}, "c") for c in request.get_json(force=True).get("palette", [])]
+        if len(palette) < 2:
+            raise ErreurApi("Palette invalide.")
+        con = db()
+        ids = [r[0] for r in con.execute(
+            "SELECT a.id FROM article a JOIN categorie c ON c.id = a.categorie_id ORDER BY c.ordre, c.id, a.ordre, a.id")]
+        for i, ident in enumerate(ids):
+            con.execute("UPDATE article SET couleur = ? WHERE id = ?", (palette[i % len(palette)], ident))
+        con.commit()
+        return jsonify(nb=len(ids))
 
     @app.post("/api/articles/<int:ident>/deplacer")
     def articles_deplacer(ident):
@@ -822,6 +839,42 @@ def enregistrer_affectations(app):
         con.commit()
         return jsonify(affectation_dict(con, nouvel)), 201
 
+    @app.get("/api/responsables")
+    def responsables():
+        """Responsables déjà saisis (chantiers et affectations), pour les proposer à la saisie."""
+        rows = db().execute(
+            """SELECT responsable FROM chantier WHERE responsable <> ''
+               UNION SELECT responsable FROM affectation WHERE responsable <> ''""").fetchall()
+        return jsonify(sorted({r[0].strip() for r in rows if r[0].strip()}, key=str.lower))
+
+    @app.post("/api/affectations/prolonger")
+    def affectations_prolonger():
+        """Prolonge plusieurs affectations jusqu'à une date. Si une autre affectation suit,
+        on s'arrête la veille de celle-ci."""
+        d = request.get_json(force=True)
+        date_fin = date_iso(d, "date_fin", "Jusqu'au", True)
+        con = db()
+        memoriser(con)
+        resultat = {"prolongees": 0, "raccourcies": [], "ignorees": 0}
+        for ident in d.get("ids", []):
+            af = con.execute(REQUETE_AFFECTATIONS + " WHERE af.id = ?", (ident,)).fetchone()
+            if not af or date_fin <= af["date_fin"]:
+                resultat["ignorees"] += 1
+                continue
+            fin = date_fin
+            suivantes = chevauchements(con, af["article_id"], jour(af["date_fin"], 1), date_fin, af["id"])
+            if suivantes:
+                fin = jour(suivantes[0]["date_debut"], -1)
+                art = con.execute("SELECT numero_interne FROM article WHERE id = ?", (af["article_id"],)).fetchone()
+                resultat["raccourcies"].append(f"{art['numero_interne']} (jusqu'au {fin[8:]}.{fin[5:7]})")
+            if fin <= af["date_fin"]:
+                resultat["ignorees"] += 1
+                continue
+            con.execute("UPDATE affectation SET date_fin = ? WHERE id = ?", (fin, ident))
+            resultat["prolongees"] += 1
+        con.commit()
+        return jsonify(resultat)
+
     @app.post("/api/annuler")
     def annuler():
         with VERROU:
@@ -881,10 +934,10 @@ def enregistrer_exports(app):
             lignes.append([a["categorie_nom"], a["numero_interne"], a["designation"], a["code_compta"],
                            base.STATUTS[a["statut"]], a["marque"], a["modele"], a["numero_serie"],
                            date_ou_vide(a["date_achat"]), a["prix_chf"], a["fournisseur"], date_ou_vide(a["fin_garantie"]),
-                           a["parent_numero"] or "", lieu, a["notes"]])
+                           a["parent_numero"] or "", a["telephone"], a["swipos_numero"], lieu, a["notes"]])
         entetes = ["Catégorie", "N° interne", "Désignation", "Code compta", "Statut", "Marque", "Modèle", "N° de série",
                    "Date d'achat", "Prix (CHF)", "Fournisseur", "Fin de garantie", "Accessoire de",
-                   "Où est-il aujourd'hui ?", "Notes"]
+                   "N° tél.", "N° Swipos", "Où est-il aujourd'hui ?", "Notes"]
         contenu = classeur_simple("Inventaire", entetes, lignes, dates=[8, 11], montants=[9])
         return telechargement(contenu, f"inventaire_{aujourdhui()}.xlsx", "xlsx")
 

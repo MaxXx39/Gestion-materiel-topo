@@ -229,6 +229,65 @@ class TestSauvegardeEtExports(TestAffectations):
         self.assertIn("H4:AH4", [str(m) for m in ws.merged_cells.ranges])
 
 
+class TestNouveautes(TestAffectations):
+    test_creation_et_chevauchement = test_modifier_sans_conflit_avec_soi_meme = test_rendre_couper_changer = None
+    test_annuler = test_filtre_par_periode = None
+
+    def test_champs_sim_swipos(self):
+        a = self.c.get(f"/api/articles/{self.art}").get_json()
+        d = {**a, "telephone": "079 123 45 67", "swipos_numero": "SW-42", "swipos_mot_de_passe": "secret"}
+        self.assertEqual(self.c.put(f"/api/articles/{self.art}", json=d).status_code, 200)
+        a = self.c.get(f"/api/articles/{self.art}").get_json()
+        self.assertEqual((a["telephone"], a["swipos_numero"], a["swipos_mot_de_passe"]), ("079 123 45 67", "SW-42", "secret"))
+
+    def test_responsables(self):
+        self.poser("2026-10-01", "2026-10-05")
+        aff = self.c.get("/api/affectations").get_json()["affectations"][0]
+        self.c.put(f"/api/affectations/{aff['id']}", json={**aff, "responsable": "Junior"})
+        self.assertEqual(self.c.get("/api/responsables").get_json(), ["Chef A", "Junior"])
+
+    def test_prolonger(self):
+        self.poser("2026-10-20", "2026-10-31")
+        art2 = self.article(self.c.get("/api/categories").get_json()[0]["id"], "B2").get_json()["id"]
+        r = self.c.post("/api/affectations", json={"article_id": art2, "chantier_id": self.ch1,
+                                                  "date_debut": "2026-10-10", "date_fin": "2026-10-31"})
+        self.c.post("/api/affectations", json={"article_id": art2, "chantier_id": self.ch2,
+                                               "date_debut": "2026-11-10", "date_fin": "2026-11-20"})
+        ids = [a["id"] for a in self.c.get("/api/affectations").get_json()["affectations"] if a["date_fin"] == "2026-10-31"]
+        r = self.c.post("/api/affectations/prolonger", json={"ids": ids, "date_fin": "2026-11-30"}).get_json()
+        self.assertEqual(r["prolongees"], 2)
+        self.assertEqual(len(r["raccourcies"]), 1)   # B2 s'arrête la veille de son affectation suivante
+        fins = sorted(a["date_fin"] for a in self.c.get("/api/affectations").get_json()["affectations"])
+        self.assertEqual(fins, ["2026-11-09", "2026-11-20", "2026-11-30"])
+        self.c.post("/api/annuler")
+        fins = sorted(a["date_fin"] for a in self.c.get("/api/affectations").get_json()["affectations"])
+        self.assertEqual(fins, ["2026-10-31", "2026-10-31", "2026-11-20"])
+
+    def test_recolorer(self):
+        cat = self.c.get("/api/categories").get_json()[0]["id"]
+        self.article(cat, "B2")
+        self.article(cat, "B3")
+        r = self.c.post("/api/articles/recolorer", json={"palette": ["#111111", "#222222"]})
+        self.assertEqual(r.get_json()["nb"], 3)
+        self.assertEqual([a["couleur"] for a in self.c.get("/api/articles").get_json()], ["#111111", "#222222", "#111111"])
+
+    def test_mise_a_jour_base_existante(self):
+        """Une base créée avec l'ancienne version reçoit les nouvelles colonnes sans perte de données."""
+        import sqlite3
+        base.FICHIER_BASE.unlink()
+        con = sqlite3.connect(base.FICHIER_BASE)
+        con.executescript(base.MIGRATIONS[0])
+        con.execute("INSERT INTO categorie (nom) VALUES ('X')")
+        con.execute("INSERT INTO article (categorie_id, numero_interne) VALUES (1, 'ANCIEN')")
+        con.execute("PRAGMA user_version = 1")
+        con.commit()
+        con.close()
+        base.initialiser()
+        a = self.c.get("/api/articles").get_json()
+        self.assertEqual(a[0]["numero_interne"], "ANCIEN")
+        self.assertEqual(a[0]["telephone"], "")
+
+
 def excel_fictif():
     """Petit classeur au format de l'ancien planning (données inventées)."""
     import openpyxl

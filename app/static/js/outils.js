@@ -108,14 +108,32 @@ export function montantSaisi(montant) {
 }
 
 // ---------------------------------------------------------------- Couleurs
-// Les 7 premières couleurs reprennent le cycle de votre Excel actuel.
+// Palette de 20 couleurs. L'ordre alterne les teintes : deux lignes voisines ne se ressemblent jamais.
 export const PALETTE = [
-  "#F2CEEF", "#C1E4F5", "#FBE2D5", "#C1F0C8", "#FFB7B7", "#FFFFB9", "#CCE0F4",
-  "#E2D5F5", "#FFE699", "#D9F2D0", "#F8CBAD", "#D9D9D9",
+  "#F4A6B8", // rose framboise
+  "#9FD3F0", // bleu ciel
+  "#FFE08A", // jaune soleil
+  "#B9A7F0", // lavande
+  "#9EE0B8", // menthe
+  "#FFB98A", // abricot
+  "#8ED8D2", // lagon
+  "#E3A6E0", // orchidée
+  "#CDE59A", // tilleul
+  "#F7A399", // corail
+  "#A8BDF5", // pervenche
+  "#F2D49B", // sable doré
+  "#D2B8F2", // lilas
+  "#A6E3A1", // vert pomme
+  "#FFC9DE", // rose poudré
+  "#9FDCEB", // turquoise pâle
+  "#E8C9A8", // caramel clair
+  "#C9D3DC", // gris bleuté
+  "#FFD1A6", // pêche
+  "#BFE8D8", // eau de mer
 ];
 
 export function couleurParDefaut(nombreArticlesDansCategorie) {
-  return PALETTE[nombreArticlesDansCategorie % 7];
+  return PALETTE[nombreArticlesDansCategorie % PALETTE.length];
 }
 
 // Texte noir ou blanc selon la couleur de fond, pour rester lisible.

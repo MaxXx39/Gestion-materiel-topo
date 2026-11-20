@@ -71,7 +71,7 @@ export function fenetreChantier(chantier = null, valeursInitiales = {}) {
         <div class="champs">
           <label class="champ"><span>N° de chantier</span><input name="numero" placeholder="ex. 123 456"></label>
           <label class="champ"><span>Nom <b class="obligatoire">*</b></span><input name="nom" required placeholder="ex. Nom du chantier"></label>
-          <label class="champ"><span>Responsable / conducteur</span><input name="responsable" placeholder="ex. M. Dupont"></label>
+          <label class="champ"><span>Responsable / conducteur</span><input name="responsable" list="liste-responsables-ch" placeholder="ex. M. Dupont"></label>
           <div class="champ"><span>&nbsp;</span>
             <label class="case"><input type="checkbox" name="facturable"> Facturable</label></div>
           <label class="champ large"><span>Notes</span><textarea name="notes" rows="2"></textarea></label>
@@ -84,6 +84,12 @@ export function fenetreChantier(chantier = null, valeursInitiales = {}) {
         </div>
       </form>`;
     document.body.appendChild(dlg);
+    api("GET", "/api/responsables").then((liste) => {
+      const dl = document.createElement("datalist");
+      dl.id = "liste-responsables-ch";
+      dl.innerHTML = liste.map((r) => `<option value="${esc(r)}">`).join("");
+      dlg.appendChild(dl);
+    }).catch(() => {});
     const f = dlg.querySelector("form");
     f.elements.numero.value = c.numero || "";
     f.elements.nom.value = c.nom || "";

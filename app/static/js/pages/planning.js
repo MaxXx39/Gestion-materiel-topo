@@ -8,7 +8,7 @@ const MOIS_COURTS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", 
 
 // État conservé quand on change de page puis qu'on revient.
 const etat = { annee: null, mois: null, mode: "mois", inactifs: false, reperer: "" };
-let D = { articles: [], chantiers: [], affectations: [], annulable: false };
+let D = { articles: [], chantiers: [], affectations: [], annulable: false, responsables: [] };
 let zonePage = null;
 
 // ------------------------------------------------------------------ Dates
@@ -30,16 +30,16 @@ const visibles = () => D.articles.filter((a) => etat.inactifs || a.statut === "a
 
 function periode() {
   if (etat.mode === "annee") return [`${etat.annee}-01-01`, `${etat.annee}-12-31`];
-  return [jourDe(etat.annee, etat.mois, 1), jourDe(etat.annee, etat.mois, nbJours(etat.annee, etat.mois))];
+  return [jourDe(etat.annee, etat.mois, 0), jourDe(etat.annee, etat.mois, nbJours(etat.annee, etat.mois))];
 }
 
 async function charger() {
   const [debut, fin] = periode();
-  const [articles, chantiers, aff] = await Promise.all([
+  const [articles, chantiers, aff, responsables] = await Promise.all([
     api("GET", "/api/articles"), api("GET", "/api/chantiers"),
-    api("GET", `/api/affectations?debut=${debut}&fin=${fin}`),
+    api("GET", `/api/affectations?debut=${debut}&fin=${fin}`), api("GET", "/api/responsables"),
   ]);
-  D = { articles, chantiers, affectations: aff.affectations, annulable: aff.annulable };
+  D = { articles, chantiers, affectations: aff.affectations, annulable: aff.annulable, responsables };
 }
 
 async function rafraichir() {
@@ -87,6 +87,7 @@ function dessiner() {
       <span class="compteur" title="Articles actifs disponibles au dépôt aujourd'hui">Dispo : <b>${dispo}</b></span>
       <input type="search" id="reperer" placeholder="Repérer un chantier, un article…" value="${esc(etat.reperer)}">
       <button data-act="annuler" ${D.annulable ? "" : "disabled"} title="Annuler la dernière modification (Ctrl+Z)">↶ Annuler</button>
+      ${etat.mode === "mois" ? `<button data-act="prolonger" title="Prolonger d'un coup les affectations qui se terminent le dernier jour du mois précédent">↦ Prolonger ${esc(MOIS_COURTS[(etat.mois + 11) % 12])}</button>` : ""}
       <button data-act="clavier" title="Saisie précise au clavier">＋ Saisie</button>
       <button class="primaire" data-act="exporter" ${etat.mode === "mois" ? "" : "disabled title=\"Choisissez un mois\""}>Exporter le mois</button>
     </div>
@@ -98,6 +99,7 @@ function dessiner() {
       <span><b>Glisser</b> une barre = la déplacer</span>
       <span><b>Cliquer</b> sur une barre = modifier, rendre, changer de chantier</span>
       <span><i style="border-right:3px dashed #555"></i> continue sur le mois voisin</span>
+      <span><i class="prec-legende"></i> dernier jour du mois précédent : tirez une barre vers la droite pour la prolonger</span>
       <span><i class="nf" style="background-image:repeating-linear-gradient(45deg,transparent 0 6px,rgba(255,255,255,.6) 6px 9px)"></i> chantier non facturable</span>
     </div>
     <div id="bulle"></div>`;
@@ -130,6 +132,7 @@ async function actionBarre(e) {
     case "annuler": return annuler();
     case "clavier": return fenetreCreation();
     case "exporter": return fenetreExport();
+    case "prolonger": return fenetreProlonger();
     default:
   }
 }
@@ -158,32 +161,53 @@ function appliquerReperage() {
 }
 
 // ------------------------------------------------------------------ Grilles
+// Texte d'une barre. « mode » : "normal", "dehors" (barre courte, texte écrit à droite sur les jours libres),
+// "court" (barre courte sans place à droite : seulement le n°) ou "vide" (colonne du mois précédent).
+function contenuBarre(af, mode) {
+  if (mode === "vide") return "";
+  const resp = responsable(af);
+  const complet = `${esc(libelleChantier(af.chantier_numero, af.chantier_nom, ""))}${resp ? `<span class="resp"> – ${esc(resp)}</span>` : ""}`;
+  if (mode === "court") return `<span class="txt">${esc(af.chantier_numero || af.chantier_nom)}</span>`;
+  if (mode === "dehors") return `<span class="txt-dehors">${complet}</span>`;
+  return `<span class="txt">${complet}</span>`;
+}
+
 function grilleMois(auj) {
   const { annee, mois } = etat;
   const n = nbJours(annee, mois);
-  const debut = jourDe(annee, mois, 1), fin = jourDe(annee, mois, n);
-  const cols = `62px 160px repeat(${n}, minmax(24px, 1fr))`;
-  const jours = Array.from({ length: n }, (_, i) => {
-    const s = jourDe(annee, mois, i + 1), w = dte(s).getUTCDay();
-    return { s, j: i + 1, w, cls: `${s === auj ? "auj" : ""} ${w === 1 ? "lundi" : ""} ${w === 0 || w === 6 ? "we" : ""}` };
+  const debutVue = jourDe(annee, mois, 0), debut = jourDe(annee, mois, 1), fin = jourDe(annee, mois, n);
+  const cols = `62px 160px minmax(26px, .8fr) repeat(${n}, minmax(24px, 1fr))`;
+  const jours = Array.from({ length: n + 1 }, (_, j) => {
+    const s = jourDe(annee, mois, j), w = dte(s).getUTCDay();
+    const cls = j === 0 ? "prec" : `${s === auj ? "auj" : ""} ${w === 1 ? "lundi" : ""} ${w === 0 || w === 6 ? "we" : ""}`;
+    return { s, j, w, cls };
   });
+  const idx = (d) => duree(debutVue, d) - 1;
   let h = `<div class="planning"><div class="pl-tete" style="grid-template-columns:34px ${cols}"><div></div>
     <div class="h">Code compta</div><div class="h">N° interne</div>
-    ${jours.map((x) => `<div class="j ${x.cls}"><b>${x.j}</b>${JOURS_COURTS[x.w]}</div>`).join("")}</div>`;
+    ${jours.map((x) => x.j === 0
+      ? `<div class="j prec" title="Dernier jour du mois précédent"><b>${Number(x.s.slice(8))}</b>${MOIS_COURTS[(mois + 11) % 12]}</div>`
+      : `<div class="j ${x.cls}"><b>${x.j}</b>${JOURS_COURTS[x.w]}</div>`).join("")}</div>`;
   for (const g of groupes(visibles())) {
     h += `<div class="pl-groupe"><div class="pl-cat"><span>${esc(g.nom)}</span></div><div class="pl-lignes">`;
     for (const a of g.articles) {
       h += `<div class="pl-ligne ${a.statut !== "actif" ? "inactif" : ""}" style="grid-template-columns:${cols}" data-art="${a.id}">
         <div class="code" style="grid-column:1">${esc(a.code_compta)}</div>
         <a class="num" href="#/article/${a.id}" style="grid-column:2;background:${esc(a.couleur)};color:${couleurTexte(a.couleur)}" title="Ouvrir la fiche">${esc(a.numero_interne)}${a.statut !== "actif" ? `<small>(${esc(STATUTS[a.statut])})</small>` : ""}</a>
-        ${jours.map((x) => `<div class="c ${x.cls}" style="grid-column:${x.j + 2}" data-j="${x.j}"></div>`).join("")}`;
-      for (const af of D.affectations.filter((x) => x.article_id === a.id && x.date_fin >= debut && x.date_debut <= fin)) {
-        const j1 = af.date_debut < debut ? 1 : Number(af.date_debut.slice(8));
-        const j2 = af.date_fin > fin ? n : Number(af.date_fin.slice(8));
-        const txt = libelle(af);
-        h += `<div class="barre ${af.date_debut < debut ? "suite-g" : ""} ${af.date_fin > fin ? "suite-d" : ""} ${af.chantier_facturable ? "" : "nf"}"
-          style="grid-column:${j1 + 2}/${j2 + 3};background:${esc(a.couleur)};border-color:${fonce(a.couleur)};color:${couleurTexte(a.couleur)}"
-          data-aff="${af.id}" title="${esc(txt)}&#10;${jj(af.date_debut)} → ${jj(af.date_fin)} (${duree(af.date_debut, af.date_fin)} j)${af.remarque ? "&#10;" + esc(af.remarque) : ""}">${af.date_debut >= debut ? '<span class="pg"></span>' : ""}${esc(txt)}${af.date_fin <= fin ? '<span class="pd"></span>' : ""}</div>`;
+        ${jours.map((x) => `<div class="c ${x.cls}" style="grid-column:${x.j + 3}" data-j="${x.j}"></div>`).join("")}`;
+      const ligneAff = D.affectations.filter((x) => x.article_id === a.id && x.date_fin >= debutVue && x.date_debut <= fin);
+      const debuts = ligneAff.map((x) => (x.date_debut < debutVue ? 0 : idx(x.date_debut)));
+      for (const af of ligneAff) {
+        const j1 = af.date_debut < debutVue ? 0 : idx(af.date_debut);
+        const j2 = af.date_fin > fin ? n : idx(af.date_fin);
+        const suivant = Math.min(n + 1, ...debuts.filter((d) => d > j2));
+        const mode = j2 === 0 ? "vide" : j2 - j1 + 1 > 2 ? "normal" : suivant - j2 - 1 >= 4 ? "dehors" : "court";
+        const complet = libelle(af);
+        const classes = [af.date_debut < debutVue ? "suite-g" : "", af.date_fin > fin ? "suite-d" : "",
+          af.chantier_facturable ? "" : "nf", j2 === 0 ? "dans-prec" : "", mode === "dehors" ? "courte-dehors" : ""].join(" ");
+        h += `<div class="barre ${classes}"
+          style="grid-column:${j1 + 3}/${j2 + 4};background:${esc(a.couleur)};border-color:${fonce(a.couleur)};color:${couleurTexte(a.couleur)}"
+          data-aff="${af.id}" title="${esc(complet)}&#10;${jj(af.date_debut)} → ${jj(af.date_fin)} (${duree(af.date_debut, af.date_fin)} j)${af.remarque ? "&#10;" + esc(af.remarque) : ""}${af.date_fin === debutVue ? "&#10;Tirez le bord droit pour prolonger sur ce mois." : ""}">${af.date_debut >= debutVue ? '<span class="pg"></span>' : ""}${contenuBarre(af, mode)}${af.date_fin <= fin ? '<span class="pd"></span>' : ""}</div>`;
       }
       h += `</div>`;
     }
@@ -223,13 +247,19 @@ function fonce(hex) {
 function brancherSouris() {
   const zone = zonePage;
   const n = nbJours(etat.annee, etat.mois);
-  const debutMois = jourDe(etat.annee, etat.mois, 1), finMois = jourDe(etat.annee, etat.mois, n);
+  const debutVue = jourDe(etat.annee, etat.mois, 0), finMois = jourDe(etat.annee, etat.mois, n);
+  const idx = (d) => duree(debutVue, d) - 1;
   const bulle = zone.querySelector("#bulle");
   let selection = null, op = null;
 
+  // Jour (0 = dernier jour du mois précédent, 1..n = jours du mois) sous la souris.
   const jourSous = (ligne, x) => {
-    const r = ligne.querySelector('.c[data-j="1"]').getBoundingClientRect();
-    return Math.min(n, Math.max(1, Math.floor((x - r.left) / r.width) + 1));
+    const cellules = ligne.querySelectorAll(".c");
+    for (const c of cellules) {
+      const r = c.getBoundingClientRect();
+      if (x < r.right) return Number(c.dataset.j);
+    }
+    return n;
   };
   const montrerBulle = (e, d, f) => {
     bulle.style.display = "block";
@@ -277,9 +307,9 @@ function brancherSouris() {
     if (op.mode === "d") { f = plus(op.af.date_fin, delta); if (f < d) f = d; }
     if (op.mode === "deplacer") { d = plus(op.af.date_debut, delta); f = plus(op.af.date_fin, delta); }
     op.d = d; op.f = f;
-    const a1 = d < debutMois ? 1 : d > finMois ? n : Number(d.slice(8));
-    const a2 = f > finMois ? n : f < debutMois ? 1 : Number(f.slice(8));
-    op.b.style.gridColumn = `${a1 + 2}/${a2 + 3}`;
+    const a1 = d < debutVue ? 0 : d > finMois ? n : idx(d);
+    const a2 = f > finMois ? n : f < debutVue ? 0 : idx(f);
+    op.b.style.gridColumn = `${a1 + 3}/${a2 + 4}`;
     op.b.classList.add("glisse");
     montrerBulle(e, d, f);
   };
@@ -324,6 +354,49 @@ async function enregistrer(methode, url, corps) {
   await rafraichir();
 }
 
+// ------------------------------------------------------------------ Prolonger depuis le mois précédent
+function fenetreProlonger() {
+  const veille = jourDe(etat.annee, etat.mois, 0);
+  const finMois = jourDe(etat.annee, etat.mois, nbJours(etat.annee, etat.mois));
+  const ids = new Set(visibles().map((a) => a.id));
+  const liste = D.affectations.filter((x) => x.date_fin === veille && ids.has(x.article_id))
+    .sort((x, y) => D.articles.indexOf(article(x.article_id)) - D.articles.indexOf(article(y.article_id)));
+  const moisPrec = MOIS[(etat.mois + 11) % 12].toLowerCase();
+  const dlg = fenetre(`
+    <h2>Prolonger les affectations de ${esc(moisPrec)}</h2>
+    <p class="sous">Affectations qui se terminent le ${jj(veille)}. Cochez celles qui continuent : elles seront prolongées
+    (jusqu'à la veille de l'affectation suivante si l'article en a déjà une).</p>
+    ${liste.length ? `
+      <label class="case" style="margin-bottom:6px"><input type="checkbox" data-tout checked> Tout cocher / décocher</label>
+      <div class="liste-prolonger">${liste.map((x) => {
+        const a = article(x.article_id);
+        return `<label class="case"><input type="checkbox" value="${x.id}" checked>
+          <span class="echantillon" style="background:${esc(a.couleur)}"></span><strong>${esc(a.numero_interne)}</strong>
+          ${esc(libelle(x))}</label>`;
+      }).join("")}</div>
+      <label class="champ" style="margin-top:12px"><span>Jusqu'au</span><input class="df" value="${jj(finMois)}"></label>`
+      : `<p>Aucune affectation ne se termine le ${jj(veille)}.</p>`}
+    <div class="actions"><button data-fermer>Annuler</button>${liste.length ? `<button class="primaire" data-ok>Prolonger</button>` : ""}</div>`);
+  dlg.style.width = "min(640px, 96vw)";
+  dlg.querySelector("[data-fermer]").onclick = () => dlg.close();
+  const tout = dlg.querySelector("[data-tout]");
+  if (tout) tout.onchange = () => dlg.querySelectorAll(".liste-prolonger input").forEach((c) => { c.checked = tout.checked; });
+  const ok = dlg.querySelector("[data-ok]");
+  if (ok) ok.onclick = async () => {
+    const choisis = [...dlg.querySelectorAll(".liste-prolonger input:checked")].map((c) => Number(c.value));
+    const df = lireDate(dlg.querySelector(".df").value);
+    if (!df) { erreur(new Error("Date « Jusqu'au » invalide.")); return; }
+    if (!choisis.length) { dlg.close(); return; }
+    try {
+      const r = await api("POST", "/api/affectations/prolonger", { ids: choisis, date_fin: df });
+      notifier(`${r.prolongees} affectation(s) prolongée(s) jusqu'au ${jj(df)}.`
+        + (r.raccourcies.length ? ` Arrêtées avant l'affectation suivante : ${r.raccourcies.join(", ")}.` : ""));
+      dlg.close();
+      await rafraichir();
+    } catch (e) { erreur(e); }
+  };
+}
+
 // ------------------------------------------------------------------ Export du mois (PDF + Excel)
 function fenetreExport() {
   const nom = `${etat.annee}_${String(etat.mois + 1).padStart(2, "0")}`;
@@ -359,7 +432,9 @@ function fenetreExport() {
 // ------------------------------------------------------------------ Fenêtres
 function fenetre(html) {
   const dlg = document.createElement("dialog");
-  dlg.innerHTML = `<div class="contenu">${html}</div>`;
+  dlg.innerHTML = `<div class="contenu">${html}</div>
+    <datalist id="liste-responsables">${D.responsables.map((r) => `<option value="${esc(r)}">`).join("")}</datalist>`;
+  dlg.querySelectorAll('input.resp, input[name="resp"]').forEach((i) => i.setAttribute("list", "liste-responsables"));
   document.body.appendChild(dlg);
   dlg.addEventListener("close", () => dlg.remove());
   dlg.showModal();

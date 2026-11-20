@@ -12,6 +12,8 @@ const COLONNES = [
   { cle: "code", titre: "Code compta", tri: "code_compta" },
   { cle: "marque", titre: "Marque / modèle", tri: (a) => `${a.marque} ${a.modele}`.trim() },
   { cle: "serie", titre: "N° de série", tri: "numero_serie" },
+  { cle: "tel", titre: "N° tél.", tri: "telephone" },
+  { cle: "swipos", titre: "N° Swipos", tri: "swipos_numero" },
   { cle: "statut", titre: "Statut", tri: (a) => STATUTS[a.statut] },
   { cle: "ou", titre: "Où est-il aujourd'hui ?", tri: (a) => ou(a) },
   { cle: "depuis", titre: "Depuis", tri: (a) => a.aujourdhui?.date_debut || "" },
@@ -37,7 +39,7 @@ export default async function pageParc(zone) {
       <button class="primaire" id="ajouter">＋ Ajouter un matériel</button>
     </div>
     <div class="outils">
-      <input type="search" id="q" placeholder="Rechercher (n°, désignation, série, chantier…)" value="${esc(memo.q)}">
+      <input type="search" id="q" placeholder="Rechercher (n°, série, tél., Swipos, chantier…)" value="${esc(memo.q)}">
       <select id="categorie">
         <option value="">Toutes les catégories</option>
         ${categories.map((c) => `<option value="${c.id}">${esc(c.nom)}</option>`).join("")}
@@ -76,7 +78,7 @@ export default async function pageParc(zone) {
       if (memo.dispo === "affecte" && !a.aujourdhui) return false;
       if (q) {
         const texte = normaliser([a.numero_interne, a.designation, a.categorie_nom, a.code_compta, a.marque,
-          a.modele, a.numero_serie, a.fournisseur, ou(a)].join(" "));
+          a.modele, a.numero_serie, a.fournisseur, a.telephone, a.swipos_numero, ou(a)].join(" "));
         if (!q.split(/\s+/).every((mot) => texte.includes(mot))) return false;
       }
       return true;
@@ -106,6 +108,8 @@ export default async function pageParc(zone) {
         <td>${esc(a.code_compta)}</td>
         <td>${esc(`${a.marque} ${a.modele}`.trim())}</td>
         <td>${esc(a.numero_serie)}</td>
+        <td style="white-space:nowrap">${esc(a.telephone)}</td>
+        <td>${esc(a.swipos_numero)}</td>
         <td>${badgeStatut(a.statut)}</td>
         <td>${lieu === "Disponible" ? '<span class="dispo">Disponible</span>' : esc(lieu)}</td>
         <td>${a.aujourdhui ? dateAffichee(a.aujourdhui.date_debut) : ""}</td>
