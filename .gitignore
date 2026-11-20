@@ -1,0 +1,6 @@
+# Vos données (à sauvegarder avec le bouton « Sauvegarde », pas avec Git)
+donnees/
+# Environnement Python créé au premier lancement
+.venv/
+__pycache__/
+*.pyc

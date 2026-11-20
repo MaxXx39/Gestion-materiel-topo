@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette planning matériel</title>
+<style>
+:root{--fond:#f4f6f8;--carte:#fff;--texte:#1d2733;--doux:#5f6b7a;--bord:#d6dce3;--bordf:#b5bfca;--prim:#1f4e79;--primc:#e6eef6;--danger:#b42318;--ok:#1e7b34;--att:#a15c00;
+font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;font-size:14px;color:var(--texte)}
+*{box-sizing:border-box}body{margin:0;background:var(--fond)}
+.bandeau{background:#fff4d6;color:#6b4a00;padding:6px 24px;font-size:13px;border-bottom:1px solid #f0d58a}
+header{display:flex;align-items:center;gap:28px;background:var(--prim);color:#fff;padding:0 24px;height:50px;position:sticky;top:0;z-index:30}
+header b{font-size:16px}header nav{display:flex;height:100%}
+header nav a{color:#dbe6f1;text-decoration:none;padding:0 14px;display:flex;align-items:center;border-bottom:3px solid transparent;cursor:pointer}
+header nav a:hover{color:#fff;background:rgba(255,255,255,.08)}header nav a.on{color:#fff;border-bottom-color:#f4b183;font-weight:600}
+main{padding:16px 24px 60px}
+.titre{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}.titre h1{font-size:20px;margin:0 8px 0 0;min-width:190px}.esp{flex:1}
+button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--bordf);background:#fff;color:var(--texte);padding:6px 12px;white-space:nowrap}
+button:hover{background:#f0f3f6}button.p{background:var(--prim);border-color:var(--prim);color:#fff}button.p:hover{background:#193f63}
+button.d{color:var(--danger);border-color:#e7b4ae}button.d:hover{background:#fdecea}
+input,select,textarea{font:inherit;color:inherit;border:1px solid var(--bordf);border-radius:6px;padding:6px 8px;background:#fff;width:100%}
+textarea{min-height:60px}
+.seg{display:inline-flex;border:1px solid var(--bordf);border-radius:6px;overflow:hidden}.seg button{border:none;border-radius:0}.seg button.on{background:var(--primc);font-weight:600}
+.aide{color:var(--doux);font-size:13px}
+.carte{background:#fff;border:1px solid var(--bord);border-radius:8px;padding:16px}
+/* ---------- Planning ---------- */
+.planning{background:#fff;border:1px solid var(--bordf);user-select:none}
+.pl-tete,.pl-ligne{display:grid}
+.pl-tete{position:sticky;top:50px;z-index:10;background:#fff;border-bottom:2px solid #555}
+.pl-tete .j{font-size:11px;text-align:center;border-left:1px solid #e3e7ec;padding:4px 0;line-height:1.2}
+.pl-tete .j b{display:block;font-size:13px}.pl-tete .j.auj{background:#1f4e79;color:#fff}
+.pl-tete .j.lundi{border-left:1px solid #9aa5b1}
+.pl-tete .h{font-size:11px;color:var(--doux);display:flex;align-items:flex-end;padding:4px 6px;font-weight:600}
+.pl-groupe{display:flex;border-bottom:2px solid #555;min-height:80px}
+.pl-cat{width:34px;flex:none;position:relative;border-right:1px solid #555;background:#fafbfc}
+.pl-cat span{position:absolute;inset:3px 0;writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;font-weight:700;font-size:10.5px;line-height:1.15;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.pl-lignes{flex:1;min-width:0;display:flex;flex-direction:column}
+.pl-ligne{position:relative;flex:1;min-height:30px;border-bottom:1px solid #c9d0d8}.pl-ligne:last-child{border-bottom:none}
+.pl-ligne .code{background:#d9d9d9;border-right:1px solid #999;display:flex;align-items:center;justify-content:center;font-size:12px}
+.pl-ligne .num{border-right:1px solid #555;display:flex;align-items:center;padding:0 6px;font-size:12.5px;cursor:pointer;overflow:hidden;white-space:nowrap}
+.pl-ligne .num:hover{text-decoration:underline}
+.pl-ligne .c{border-left:1px solid #e9ecf0;cursor:crosshair}.pl-ligne .c.lundi{border-left-color:#c3cad2}
+.pl-ligne .c.auj{background:rgba(31,78,121,.08)}.pl-ligne .c.sel{background:rgba(31,78,121,.35)!important}
+.barre{grid-row:1;margin:4px 1px;border-radius:3px;border:1px solid rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;font-size:11.5px;overflow:hidden;white-space:nowrap;cursor:pointer;padding:0 4px;z-index:2;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+.barre:hover{filter:brightness(.94);border-color:#333}
+.barre.suite-g{border-left:3px dashed rgba(0,0,0,.35);border-top-left-radius:0;border-bottom-left-radius:0}
+.barre.suite-d{border-right:3px dashed rgba(0,0,0,.35);border-top-right-radius:0;border-bottom-right-radius:0}
+.barre.nf{background-image:repeating-linear-gradient(45deg,transparent 0 6px,rgba(255,255,255,.55) 6px 9px)}
+.legende{display:flex;gap:18px;margin-top:8px;color:var(--doux);font-size:12px;flex-wrap:wrap}
+.legende span i{display:inline-block;width:22px;height:11px;border:1px solid rgba(0,0,0,.3);vertical-align:middle;margin-right:4px;background:#C1E4F5}
+/* Année */
+.annee{background:#fff;border:1px solid var(--bordf);padding:10px;overflow-x:auto}
+.an-ligne{display:flex;align-items:center;height:17px}.an-ligne .n{width:110px;font-size:11.5px;flex:none;overflow:hidden;white-space:nowrap}
+.an-piste{position:relative;height:13px;width:1095px;background:#f3f5f7}
+.an-piste i{position:absolute;top:0;bottom:0;border-radius:2px;border:1px solid rgba(0,0,0,.2)}
+.an-mois{display:flex;margin-left:110px;width:1095px}.an-mois div{font-size:11px;text-align:center;border-left:1px solid #bbb;cursor:pointer;padding:3px 0;color:var(--doux)}
+.an-mois div:hover{background:var(--primc);color:var(--texte)}
+.an-sep{height:6px}
+/* ---------- Fenêtres ---------- */
+dialog{border:none;border-radius:10px;padding:0;box-shadow:0 12px 40px rgba(0,0,0,.3);width:min(520px,94vw)}
+dialog::backdrop{background:rgba(20,30,40,.35)}
+.dlg{padding:18px 20px}.dlg h2{font-size:16px;margin:0 0 4px}.dlg .sous{color:var(--doux);margin-bottom:14px;font-size:13px}
+.champ{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}.champ>span{font-size:12px;color:var(--doux);font-weight:600}
+.deux{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+.liste-ch{border:1px solid var(--bord);border-radius:6px;max-height:210px;overflow:auto;margin-top:4px}
+.liste-ch div{padding:6px 10px;cursor:pointer;border-bottom:1px solid #f0f2f4;font-size:13px}.liste-ch div:last-child{border-bottom:none}
+.liste-ch div:hover,.liste-ch div.on{background:var(--primc)}.liste-ch .nv{color:var(--prim);font-weight:600}
+.liste-ch small{color:var(--doux)}
+.rapide{background:#f6f8fa;border:1px solid var(--bord);border-radius:8px;padding:10px 12px;margin:12px 0}
+.rapide h3{font-size:12px;margin:0 0 8px;color:var(--doux);text-transform:uppercase;letter-spacing:.03em}
+.rapide .l{display:flex;gap:8px;align-items:center;margin-bottom:6px}.rapide .l input{width:120px}.rapide .l select{flex:1}
+.choix button{display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px 12px}.choix button small{display:block;color:var(--doux)}
+/* ---------- Tableaux ---------- */
+table.t{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--bord)}
+table.t th,table.t td{padding:7px 10px;text-align:left;border-bottom:1px solid #e8ecf0}
+table.t th{background:#eef2f6;font-size:12px;color:var(--doux);cursor:pointer;white-space:nowrap}
+table.t tbody tr:hover{background:var(--primc);cursor:pointer}
+.pas{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,.2);vertical-align:middle}
+.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;background:#e3f4e7;color:var(--ok)}
+.badge.rep{background:#fff1d6;color:var(--att)}.dispo{color:var(--ok);font-weight:600}
+.outils{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}.outils input,.outils select{width:auto}
+/* Fiche */
+.fiche{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start}
+.grille{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}.grille .large{grid-column:1/-1}
+.photo{aspect-ratio:4/3;background:#eef2f6;border:1px dashed var(--bordf);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--doux);text-align:center;padding:10px}
+.palette{display:flex;gap:5px;flex-wrap:wrap}.palette b{width:24px;height:24px;border-radius:4px;border:1px solid rgba(0,0,0,.2);cursor:pointer}.palette b.on{outline:2px solid #000;outline-offset:1px}
+/* Tableau de bord */
+.tuiles{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.tuile{background:#fff;border:1px solid var(--bord);border-radius:8px;padding:14px 16px}.tuile .v{font-size:28px;font-weight:700}.tuile .l{color:var(--doux);font-size:13px}
+/* ---------- Aperçu PDF ---------- */
+.feuille-zone{background:#7d8792;padding:20px;display:flex;justify-content:center;overflow:auto}
+.feuille{width:1123px;height:794px;background:#fff;padding:28px 30px;box-shadow:0 4px 20px rgba(0,0,0,.4);font-family:Calibri,Arial,sans-serif;display:flex;flex-direction:column}
+.pdf{border:1.5px solid #000;flex:1;display:flex;flex-direction:column;min-height:0}
+.pdf .r{display:grid;border-bottom:.75px solid #444}
+.pdf .tt{border-bottom:1.5px solid #000}
+.pdf .mois{grid-column:4/-1;text-align:center;font-weight:700;font-size:11px;border-left:1.5px solid #000;border-bottom:.75px solid #000;padding:2px}
+.pdf .dt{writing-mode:vertical-rl;transform:rotate(180deg);font-size:7px;text-align:right;border-left:.5px solid #888;padding:3px 0;display:flex;align-items:center;justify-content:flex-end;height:62px}
+.pdf .jr{writing-mode:vertical-rl;transform:rotate(180deg);font-size:7px;border-left:.5px solid #888;padding:2px 0;display:flex;align-items:center;justify-content:flex-start;height:30px}
+.pdf .hcode{writing-mode:vertical-rl;transform:rotate(180deg);font-size:8.5px;text-align:center;background:#d9d9d9;border-left:.75px solid #444;border-right:.75px solid #444;display:flex;align-items:center;justify-content:center}
+.pdf .g{display:flex;border-bottom:1.5px solid #000;flex:1;min-height:0}.pdf .g:last-child{border-bottom:none}
+.pdf .cat{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:700;font-size:8.5px;text-align:center;display:flex;align-items:center;justify-content:center;flex:none;border-left:1.5px solid #000}
+.pdf .ls{flex:1;display:flex;flex-direction:column;min-width:0}
+.pdf .l{display:grid;flex:1;border-bottom:.75px solid #444;min-height:0;position:relative}.pdf .l:last-child{border-bottom:none}
+.pdf .l .co{background:#d9d9d9;font-size:9px;display:flex;align-items:center;justify-content:center;border-left:.75px solid #444;border-right:.75px solid #444}
+.pdf .l .nu{font-size:9px;display:flex;align-items:center;padding-left:3px;border-right:1.5px solid #000;white-space:nowrap;overflow:hidden}
+.pdf .l .cj{border-left:.5px solid #999;grid-row:1}
+.pdf .l .bp{grid-row:1;border:.75px solid #333;font-size:7.5px;display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden;margin:1.5px 0;z-index:1}
+</style>
+</head>
+<body>
+<div class="bandeau"><b>Maquette à valider</b> — données réelles 2026 reprises de votre Excel. Pour la démonstration, « aujourd'hui » est fixé au <b>20.10.2026</b>. Les modifications sont perdues si vous rechargez la page.</div>
+<header><b>Matériel topo</b><nav id="nav">
+<a data-v="planning" class="on">Planning</a><a data-v="parc">Parc</a><a data-v="chantiers">Chantiers</a><a data-v="tableau">Tableau de bord</a><a data-v="pdf">PDF du mois</a>
+</nav></header>
+<main id="main"></main>
+
+<script id="donnees" type="application/json">{"categories": ["Canne GPS", "STATION TOTALE ROBOTISE - Théodolite", "GUIDAGE 3D MACHINE", "CAMERA", "DETECTEUR"], "articles": [{"id": 1, "cat": "Canne GPS", "code": "112", "num": "953", "couleur": "#F2CFEE"}, {"id": 2, "cat": "Canne GPS", "code": "103", "num": "9531", "couleur": "#C1E5F5"}, {"id": 3, "cat": "Canne GPS", "code": "104", "num": "9535", "couleur": "#FBE3D6"}, {"id": 4, "cat": "Canne GPS", "code": "105", "num": "9536", "couleur": "#C2F1C8"}, {"id": 5, "cat": "Canne GPS", "code": "", "num": "9538", "couleur": "#FFB7B7"}, {"id": 6, "cat": "Canne GPS", "code": "101", "num": "9539", "couleur": "#FFFFB9"}, {"id": 7, "cat": "Canne GPS", "code": "100", "num": "953A10", "couleur": "#CCE0F4"}, {"id": 8, "cat": "Canne GPS", "code": "102", "num": "953A3", "couleur": "#F2CFEE"}, {"id": 9, "cat": "Canne GPS", "code": "111", "num": "953A4", "couleur": "#C1E5F5"}, {"id": 10, "cat": "Canne GPS", "code": "113", "num": "953A5", "couleur": "#FBE3D6"}, {"id": 11, "cat": "Canne GPS", "code": "114", "num": "953A6", "couleur": "#C2F1C8"}, {"id": 12, "cat": "Canne GPS", "code": "115", "num": "953A7", "couleur": "#FFB7B7"}, {"id": 13, "cat": "Canne GPS", "code": "106", "num": "953A9", "couleur": "#FFFFB9"}, {"id": 14, "cat": "STATION TOTALE ROBOTISE - Théodolite", "code": "111", "num": "Leica Icon 1", "couleur": "#CCE0F4"}, {"id": 15, "cat": "STATION TOTALE ROBOTISE - Théodolite", "code": "108", "num": "Leica Icon 2", "couleur": "#F2CFEE"}, {"id": 16, "cat": "STATION TOTALE ROBOTISE - Théodolite", "code": "107", "num": "SOKKIA", "couleur": "#C1E5F5"}, {"id": 17, "cat": "STATION TOTALE ROBOTISE - Théodolite", "code": "", "num": "Hilti PLT400 1", "couleur": "#FBE3D6"}, {"id": 18, "cat": "STATION TOTALE ROBOTISE - Théodolite", "code": "", "num": "Hilti PLT400 2", "couleur": "#C2F1C8"}, {"id": 19, "cat": "GUIDAGE 3D MACHINE", "code": "", "num": "Guidage 3D 1", "couleur": "#FFB7B7"}, {"id": 20, "cat": "GUIDAGE 3D MACHINE", "code": "", "num": "Guidage 3D 2", "couleur": "#FFFFB9"}, {"id": 21, "cat": "GUIDAGE 3D MACHINE", "code": "", "num": "Guidage 3D 3", "couleur": "#CCE0F4"}, {"id": 22, "cat": "CAMERA", "code": "104", "num": "GEJOS", "couleur": "#F2CFEE"}, {"id": 23, "cat": "CAMERA", "code": "105", "num": "SOLO PRO+", "couleur": "#C1E5F5"}, {"id": 24, "cat": "DETECTEUR", "code": "108-109", "num": "RIGID", "couleur": "#FBE3D6"}], "chantiers": [{"id": 1, "numero": "943 626", "nom": "Genève Parc Beaulieu", "responsable": "Ribeiro", "facturable": true}, {"id": 2, "numero": "10 204", "nom": "Ctm CSud - Denges", "responsable": "M. Santos", "facturable": true}, {"id": 3, "numero": "10 201", "nom": "Reverolle", "responsable": "", "facturable": true}, {"id": 4, "numero": "943 926", "nom": "GLAND bassin impérial", "responsable": "RUI SILVA", "facturable": true}, {"id": 5, "numero": "858 926", "nom": "Gilly", "responsable": "M. Santos", "facturable": true}, {"id": 6, "numero": "855 625", "nom": "GLAND Ch. du Stand", "responsable": "CARDOSO", "facturable": true}, {"id": 7, "numero": "851 624", "nom": "RC1 Prangins Nyon", "responsable": "", "facturable": true}, {"id": 8, "numero": "449 425", "nom": "COINTRIN ch du ruisseau 39", "responsable": "SALAZAR", "facturable": true}, {"id": 9, "numero": "857 526", "nom": "GLAND CITY ONE", "responsable": "Junior", "facturable": true}, {"id": 10, "numero": "857 426", "nom": "Nyon Pantaz", "responsable": "Junior", "facturable": true}, {"id": 11, "numero": "855 325", "nom": "Begnins - La Remise de B", "responsable": "Junior", "facturable": true}, {"id": 12, "numero": "856 425", "nom": "ARZIER Parking BIX", "responsable": "DE MATOS", "facturable": true}, {"id": 13, "numero": "10 195", "nom": "RC7", "responsable": "REBOREDO", "facturable": true}, {"id": 14, "numero": "", "nom": "RONCHI", "responsable": "", "facturable": true}, {"id": 15, "numero": "10 203", "nom": "OFROU PAB", "responsable": "SCULO", "facturable": true}, {"id": 16, "numero": "850 724", "nom": "GENOLIER Gare NStCM", "responsable": "DA COSTA", "facturable": true}, {"id": 17, "numero": "706 526", "nom": "Nyon PMB 12", "responsable": "Natalini", "facturable": true}, {"id": 18, "numero": "852 824", "nom": "DUILLIER", "responsable": "Les Matins de Duillier", "facturable": true}, {"id": 19, "numero": "858 326", "nom": "BOREX", "responsable": "P MGROSJEAN", "facturable": true}, {"id": 20, "numero": "10 199", "nom": "CTM Gland - APEC", "responsable": "Lagoia", "facturable": true}, {"id": 21, "numero": "943 525", "nom": "Gland Ronchi Collecteur", "responsable": "Lagoia", "facturable": true}, {"id": 22, "numero": "664 325", "nom": "NYON Atria", "responsable": "GUERRIN", "facturable": true}, {"id": 23, "numero": "664 626", "nom": "FOUNEX SGM", "responsable": "GUERRIN", "facturable": true}, {"id": 24, "numero": "707 126", "nom": "Natalini", "responsable": "", "facturable": true}, {"id": 25, "numero": "8313", "nom": "MF ETOY", "responsable": "PAOLO", "facturable": true}, {"id": 26, "numero": "704 724", "nom": "Saint-Cergue - VESTA", "responsable": "Natalini", "facturable": true}, {"id": 27, "numero": "706 926", "nom": "Genolier Villa Pesse", "responsable": "Natalini", "facturable": true}, {"id": 28, "numero": "858 826", "nom": "Founex", "responsable": "M. Santos", "facturable": true}, {"id": 29, "numero": "853 225", "nom": "Nyon EMS", "responsable": "Cardoso", "facturable": true}, {"id": 30, "numero": "849 623", "nom": "Mont-sur-Rolle - Plein Lac", "responsable": "Paolo", "facturable": true}, {"id": 31, "numero": "857 626", "nom": "GLAND Savoie", "responsable": "LUIS", "facturable": true}, {"id": 32, "numero": "857 826", "nom": "Le Vaud", "responsable": "Luis Rodrigues", "facturable": true}, {"id": 33, "numero": "856 325", "nom": "RC7", "responsable": "", "facturable": true}, {"id": 34, "numero": "856 726", "nom": "MORGES Chanel 37", "responsable": "RODRIGUES", "facturable": true}, {"id": 35, "numero": "", "nom": "GEOMETRE", "responsable": "MGO", "facturable": true}, {"id": 36, "numero": "664 225", "nom": "Gland Combaz A8", "responsable": "", "facturable": true}, {"id": 37, "numero": "665 326", "nom": "GLAND", "responsable": "Magnenets", "facturable": true}, {"id": 38, "numero": "943 225", "nom": "GENEVE place de Hollande", "responsable": "SCULO", "facturable": true}, {"id": 39, "numero": "664 426", "nom": "Morges - Chanel 37", "responsable": "Marco F.", "facturable": true}, {"id": 40, "numero": "447 824", "nom": "Genève école Liotard", "responsable": "", "facturable": true}], "affectations": [{"id": 1, "article": 1, "chantier": 1, "debut": "2026-03-23", "fin": "2026-03-29", "responsable": ""}, {"id": 2, "article": 1, "chantier": 2, "debut": "2026-04-13", "fin": "2026-06-23", "responsable": ""}, {"id": 3, "article": 1, "chantier": 3, "debut": "2026-07-22", "fin": "2026-07-31", "responsable": ""}, {"id": 4, "article": 1, "chantier": 4, "debut": "2026-08-03", "fin": "2026-09-08", "responsable": ""}, {"id": 5, "article": 1, "chantier": 2, "debut": "2026-09-09", "fin": "2026-09-30", "responsable": ""}, {"id": 6, "article": 1, "chantier": 5, "debut": "2026-10-19", "fin": "2026-10-31", "responsable": ""}, {"id": 7, "article": 2, "chantier": 6, "debut": "2026-01-13", "fin": "2026-06-30", "responsable": ""}, {"id": 8, "article": 2, "chantier": 7, "debut": "2026-07-01", "fin": "2026-10-31", "responsable": ""}, {"id": 9, "article": 3, "chantier": 8, "debut": "2026-01-13", "fin": "2026-04-30", "responsable": ""}, {"id": 10, "article": 3, "chantier": 9, "debut": "2026-05-25", "fin": "2026-06-30", "responsable": ""}, {"id": 11, "article": 3, "chantier": 10, "debut": "2026-07-01", "fin": "2026-07-21", "responsable": ""}, {"id": 12, "article": 3, "chantier": 3, "debut": "2026-07-22", "fin": "2026-07-31", "responsable": ""}, {"id": 13, "article": 3, "chantier": 10, "debut": "2026-08-17", "fin": "2026-09-30", "responsable": ""}, {"id": 14, "article": 3, "chantier": 11, "debut": "2026-10-01", "fin": "2026-10-31", "responsable": ""}, {"id": 15, "article": 4, "chantier": 12, "debut": "2026-01-13", "fin": "2026-06-30", "responsable": ""}, {"id": 16, "article": 4, "chantier": 13, "debut": "2026-07-01", "fin": "2026-07-21", "responsable": ""}, {"id": 17, "article": 4, "chantier": 3, "debut": "2026-07-22", "fin": "2026-07-31", "responsable": ""}, {"id": 18, "article": 4, "chantier": 13, "debut": "2026-08-17", "fin": "2026-09-18", "responsable": ""}, {"id": 19, "article": 5, "chantier": 14, "debut": "2026-01-01", "fin": "2026-10-31", "responsable": ""}, {"id": 20, "article": 6, "chantier": 15, "debut": "2026-03-17", "fin": "2026-10-31", "responsable": ""}, {"id": 21, "article": 7, "chantier": 13, "debut": "2026-03-30", "fin": "2026-10-31", "responsable": ""}, {"id": 22, "article": 8, "chantier": 16, "debut": "2026-01-13", "fin": "2026-03-31", "responsable": ""}, {"id": 23, "article": 8, "chantier": 17, "debut": "2026-05-18", "fin": "2026-06-05", "responsable": ""}, {"id": 24, "article": 8, "chantier": 18, "debut": "2026-06-19", "fin": "2026-07-21", "responsable": ""}, {"id": 25, "article": 8, "chantier": 3, "debut": "2026-07-22", "fin": "2026-07-31", "responsable": ""}, {"id": 26, "article": 8, "chantier": 18, "debut": "2026-08-17", "fin": "2026-09-17", "responsable": ""}, {"id": 27, "article": 8, "chantier": 19, "debut": "2026-09-18", "fin": "2026-10-31", "responsable": ""}, {"id": 28, "article": 9, "chantier": 20, "debut": "2026-01-13", "fin": "2026-01-31", "responsable": ""}, {"id": 29, "article": 9, "chantier": 21, "debut": "2026-02-01", "fin": "2026-02-23", "responsable": ""}, {"id": 30, "article": 9, "chantier": 20, "debut": "2026-02-24", "fin": "2026-04-30", "responsable": ""}, {"id": 31, "article": 9, "chantier": 20, "debut": "2026-07-01", "fin": "2026-10-31", "responsable": ""}, {"id": 32, "article": 10, "chantier": 22, "debut": "2026-01-26", "fin": "2026-03-08", "responsable": ""}, {"id": 33, "article": 10, "chantier": 23, "debut": "2026-03-09", "fin": "2026-04-30", "responsable": ""}, {"id": 34, "article": 10, "chantier": 10, "debut": "2026-05-11", "fin": "2026-06-30", "responsable": "Luis"}, {"id": 35, "article": 10, "chantier": 3, "debut": "2026-07-22", "fin": "2026-07-31", "responsable": ""}, {"id": 36, "article": 10, "chantier": 1, "debut": "2026-08-10", "fin": "2026-08-31", "responsable": ""}, {"id": 37, "article": 10, "chantier": 24, "debut": "2026-09-02", "fin": "2026-10-31", "responsable": ""}, {"id": 38, "article": 11, "chantier": 25, "debut": "2026-02-19", "fin": "2026-03-31", "responsable": ""}, {"id": 39, "article": 11, "chantier": 20, "debut": "2026-05-01", "fin": "2026-06-30", "responsable": ""}, {"id": 40, "article": 11, "chantier": 3, "debut": "2026-07-22", "fin": "2026-07-31", "responsable": ""}, {"id": 41, "article": 11, "chantier": 26, "debut": "2026-08-20", "fin": "2026-08-31", "responsable": ""}, {"id": 42, "article": 11, "chantier": 27, "debut": "2026-09-01", "fin": "2026-10-08", "responsable": ""}, {"id": 43, "article": 11, "chantier": 28, "debut": "2026-10-26", "fin": "2026-10-31", "responsable": ""}, {"id": 44, "article": 12, "chantier": 29, "debut": "2026-03-02", "fin": "2026-03-08", "responsable": ""}, {"id": 45, "article": 12, "chantier": 30, "debut": "2026-04-16", "fin": "2026-04-30", "responsable": ""}, {"id": 46, "article": 12, "chantier": 7, "debut": "2026-06-01", "fin": "2026-06-30", "responsable": ""}, {"id": 47, "article": 12, "chantier": 3, "debut": "2026-07-22", "fin": "2026-07-31", "responsable": ""}, {"id": 48, "article": 12, "chantier": 31, "debut": "2026-08-10", "fin": "2026-10-18", "responsable": ""}, {"id": 49, "article": 12, "chantier": 32, "debut": "2026-10-19", "fin": "2026-10-31", "responsable": ""}, {"id": 50, "article": 13, "chantier": 18, "debut": "2026-06-03", "fin": "2026-06-18", "responsable": ""}, {"id": 51, "article": 13, "chantier": 33, "debut": "2026-09-21", "fin": "2026-10-31", "responsable": ""}, {"id": 52, "article": 14, "chantier": 34, "debut": "2026-02-24", "fin": "2026-04-08", "responsable": ""}, {"id": 53, "article": 14, "chantier": 15, "debut": "2026-05-18", "fin": "2026-10-31", "responsable": ""}, {"id": 54, "article": 15, "chantier": 35, "debut": "2026-01-01", "fin": "2026-10-31", "responsable": ""}, {"id": 55, "article": 17, "chantier": 36, "debut": "2026-02-01", "fin": "2026-03-31", "responsable": ""}, {"id": 56, "article": 17, "chantier": 2, "debut": "2026-06-24", "fin": "2026-09-08", "responsable": ""}, {"id": 57, "article": 17, "chantier": 37, "debut": "2026-09-09", "fin": "2026-10-31", "responsable": ""}, {"id": 58, "article": 18, "chantier": 38, "debut": "2026-02-01", "fin": "2026-03-31", "responsable": ""}, {"id": 59, "article": 18, "chantier": 39, "debut": "2026-05-11", "fin": "2026-06-30", "responsable": ""}, {"id": 60, "article": 18, "chantier": 13, "debut": "2026-07-20", "fin": "2026-09-20", "responsable": ""}, {"id": 61, "article": 18, "chantier": 40, "debut": "2026-09-21", "fin": "2026-10-31", "responsable": ""}, {"id": 62, "article": 24, "chantier": 13, "debut": "2026-08-26", "fin": "2026-08-26", "responsable": ""}]}</script>
+<script>
+const D = JSON.parse(document.getElementById('donnees').textContent);
+const AUJ = '2026-10-20';
+const MOIS = ['JANVIER','FÉVRIER','MARS','AVRIL','MAI','JUIN','JUILLET','AOÛT','SEPTEMBRE','OCTOBRE','NOVEMBRE','DÉCEMBRE'];
+const JC = ['dim','lun','mar','mer','jeu','ven','sam'];
+const PAL = ['#F2CEEF','#C1E4F5','#FBE2D5','#C1F0C8','#FFB7B7','#FFFFB9','#CCE0F4','#E2D5F5','#FFE699','#D9F2D0','#F8CBAD','#D9D9D9'];
+D.articles.forEach(a => { a.statut = 'actif'; a.marque=''; a.modele=''; a.serie=''; a.prix=null; a.designation=''; });
+D.articles.find(a => a.num === 'SOKKIA').statut = 'reparation';
+let etat = { vue: 'planning', annee: 2026, mois: 9, mode: 'mois', ficheId: null, tri: 'ordre', voirInactifs: false };
+let prochainId = 1000;
+
+// ---------- dates ----------
+const iso = d => d.toISOString().slice(0,10);
+const dte = s => new Date(s + 'T00:00:00Z');
+const plus = (s, n) => { const d = dte(s); d.setUTCDate(d.getUTCDate() + n); return iso(d); };
+const jj = s => s ? s.slice(8,10) + '.' + s.slice(5,7) + '.' + s.slice(0,4) : '';
+const nbJours = (a, m) => new Date(Date.UTC(a, m + 1, 0)).getUTCDate();
+const jourDe = (a, m, j) => iso(new Date(Date.UTC(a, m, j)));
+function lire(s) { // saisie rapide : 5.10 / 5.10.26 / 05.10.2026
+  s = (s || '').trim(); if (!s) return null;
+  const p = s.split(/[.\/\-\s]+/); if (p.length < 2) return null;
+  let [j, m, a] = p.map(Number); a = a === undefined ? 2026 : (a < 100 ? 2000 + a : a);
+  const d = new Date(Date.UTC(a, m - 1, j)); if (d.getUTCMonth() !== m - 1) return null; return iso(d);
+}
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ch = id => D.chantiers.find(c => c.id === id);
+const art = id => D.articles.find(a => a.id === id);
+const libelle = a => { const c = ch(a.chantier); return [c.numero, c.nom, a.responsable || c.responsable].filter(Boolean).join(' – '); };
+const libCh = c => [c.numero, c.nom, c.responsable].filter(Boolean).join(' – ');
+const ouAuj = id => D.affectations.find(a => a.article === id && a.debut <= AUJ && a.fin >= AUJ);
+const visibles = () => D.articles.filter(a => etat.voirInactifs || a.statut === 'actif');
+function groupes(liste) { const g = []; for (const c of D.categories) { const as = liste.filter(a => a.cat === c); if (as.length) g.push([c, as]); } return g; }
+
+// ---------- navigation ----------
+document.getElementById('nav').onclick = e => { const v = e.target.dataset.v; if (v) { etat.vue = v; rendre(); } };
+function rendre() {
+  document.querySelectorAll('#nav a').forEach(a => a.classList.toggle('on', a.dataset.v === etat.vue || (etat.vue === 'fiche' && a.dataset.v === 'parc')));
+  ({ planning: vuePlanning, parc: vueParc, fiche: vueFiche, chantiers: vueChantiers, tableau: vueTableau, pdf: vuePdf })[etat.vue]();
+}
+const M = () => document.getElementById('main');
+
+// =====================================================================
+// PLANNING
+// =====================================================================
+function vuePlanning() {
+  const { annee, mois } = etat;
+  M().innerHTML = `
+  <div class="titre">
+    <button onclick="changerMois(-1)" title="Mois précédent">◀</button>
+    <h1 style="text-align:center">${etat.mode === 'mois' ? MOIS[mois] + ' ' + annee : 'Année ' + annee}</h1>
+    <button onclick="changerMois(1)" title="Mois suivant">▶</button>
+    <button onclick="etat.annee=2026;etat.mois=9;etat.mode='mois';rendre()">Aujourd'hui</button>
+    <span class="seg"><button class="${etat.mode==='mois'?'on':''}" onclick="etat.mode='mois';rendre()">Mois</button><button class="${etat.mode==='annee'?'on':''}" onclick="etat.mode='annee';rendre()">Année</button></span>
+    <label class="aide"><input type="checkbox" style="width:auto" ${etat.voirInactifs?'checked':''} onchange="etat.voirInactifs=this.checked;rendre()"> Afficher les articles inactifs</label>
+    <span class="esp"></span>
+    <button onclick="dlgCreation()">＋ Saisie au clavier</button>
+    <button class="p" onclick="etat.vue='pdf';rendre()">Exporter le PDF du mois</button>
+  </div>
+  ${etat.mode === 'mois' ? grilleMois() : grilleAnnee()}
+  <div class="legende">
+    <span><b>Glisser</b> sur les jours d'une ligne = nouvelle affectation</span>
+    <span><b>Cliquer</b> sur une barre = modifier / rendre / changer de chantier</span>
+    <span><i style="border-right:3px dashed #555"></i> continue le mois suivant</span>
+    <span><i class="barre nf" style="display:inline-block;margin:0"></i> chantier non facturable</span>
+  </div>`;
+  if (etat.mode === 'mois') brancherGlisser();
+}
+function changerMois(n) {
+  if (etat.mode === 'annee') { etat.annee += n; } else { etat.mois += n; if (etat.mois < 0) { etat.mois = 11; etat.annee--; } if (etat.mois > 11) { etat.mois = 0; etat.annee++; } }
+  rendre();
+}
+function grilleMois() {
+  const { annee, mois } = etat, n = nbJours(annee, mois);
+  const cols = `62px 120px repeat(${n}, minmax(26px, 1fr))`;
+  const debut = jourDe(annee, mois, 1), fin = jourDe(annee, mois, n);
+  let h = `<div class="planning"><div class="pl-tete" style="grid-template-columns:34px ${cols}"><div></div><div class="h">Code compta</div><div class="h">N° interne</div>`;
+  for (let j = 1; j <= n; j++) { const s = jourDe(annee, mois, j), w = dte(s).getUTCDay();
+    h += `<div class="j ${s===AUJ?'auj':''} ${w===1?'lundi':''}"><b>${j}</b>${JC[w]}</div>`; }
+  h += `</div>`;
+  for (const [cat, as] of groupes(visibles())) {
+    h += `<div class="pl-groupe"><div class="pl-cat"><span>${esc(cat)}</span></div><div class="pl-lignes">`;
+    for (const a of as) {
+      h += `<div class="pl-ligne" style="grid-template-columns:${cols}" data-art="${a.id}">
+        <div class="code" style="grid-row:1;grid-column:1">${esc(a.code)}</div>
+        <div class="num" style="grid-row:1;grid-column:2;background:${a.couleur}" onclick="ouvrirFiche(${a.id})" title="Ouvrir la fiche">${esc(a.num)}${a.statut!=='actif'?' <small>(SAV)</small>':''}</div>`;
+      for (let j = 1; j <= n; j++) { const s = jourDe(annee, mois, j), w = dte(s).getUTCDay();
+        h += `<div class="c ${s===AUJ?'auj':''} ${w===1?'lundi':''}" style="grid-row:1;grid-column:${j+2}" data-j="${j}"></div>`; }
+      for (const af of D.affectations.filter(x => x.article === a.id && x.fin >= debut && x.debut <= fin)) {
+        const j1 = af.debut < debut ? 1 : +af.debut.slice(8), j2 = af.fin > fin ? n : +af.fin.slice(8);
+        const c = ch(af.chantier);
+        h += `<div class="barre ${af.debut<debut?'suite-g':''} ${af.fin>fin?'suite-d':''} ${c.facturable?'':'nf'}" style="grid-column:${j1+2}/${j2+3};background:${a.couleur}" data-aff="${af.id}" title="${esc(libelle(af))}\n${jj(af.debut)} → ${jj(af.fin)}">${esc(libelle(af))}</div>`;
+      }
+      h += `</div>`;
+    }
+    h += `</div></div>`;
+  }
+  return h + `</div>`;
+}
+function grilleAnnee() {
+  const a0 = Date.UTC(etat.annee, 0, 1), px = 3;
+  let h = `<div class="annee"><div class="an-mois">`;
+  for (let m = 0; m < 12; m++) h += `<div style="width:${nbJours(etat.annee,m)*px}px" onclick="etat.mois=${m};etat.mode='mois';rendre()">${['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'][m]}</div>`;
+  h += `</div>`;
+  for (const [cat, as] of groupes(visibles())) {
+    h += `<div class="an-sep"></div>`;
+    for (const a of as) {
+      h += `<div class="an-ligne"><div class="n" title="${esc(cat)}">${esc(a.num)}</div><div class="an-piste">`;
+      for (const af of D.affectations.filter(x => x.article === a.id && x.debut.startsWith(etat.annee) || x.article === a.id && x.fin.startsWith(etat.annee))) {
+        const g = Math.max(0, (dte(af.debut) - a0) / 864e5), dr = Math.min(365, (dte(af.fin) - a0) / 864e5 + 1);
+        h += `<i style="left:${g*px}px;width:${(dr-g)*px}px;background:${a.couleur}" title="${esc(libelle(af))} : ${jj(af.debut)} → ${jj(af.fin)}"></i>`;
+      }
+      const t = (dte(AUJ) - a0) / 864e5;
+      h += `<i style="left:${t*px}px;width:2px;background:#1f4e79;border:none"></i></div></div>`;
+    }
+  }
+  return h + `</div><p class="aide">Cliquez sur un mois pour l'ouvrir.</p>`;
+}
+
+// ---------- glisser pour créer ----------
+function brancherGlisser() {
+  let ligne = null, j0 = 0, j1 = 0;
+  const marquer = () => ligne.querySelectorAll('.c').forEach(c => { const j = +c.dataset.j; c.classList.toggle('sel', j >= Math.min(j0,j1) && j <= Math.max(j0,j1)); });
+  document.querySelectorAll('.pl-ligne').forEach(l => {
+    l.addEventListener('mousedown', e => {
+      const b = e.target.closest('.barre'); if (b) { dlgAffectation(+b.dataset.aff); return; }
+      const c = e.target.closest('.c'); if (!c) return;
+      ligne = l; j0 = j1 = +c.dataset.j; marquer(); e.preventDefault();
+    });
+    l.addEventListener('mouseover', e => { if (ligne !== l) return; const c = e.target.closest('.c'); if (c) { j1 = +c.dataset.j; marquer(); } });
+  });
+  window.onmouseup = () => {
+    if (!ligne) return; const l = ligne; ligne = null;
+    const d = jourDe(etat.annee, etat.mois, Math.min(j0,j1)), f = jourDe(etat.annee, etat.mois, Math.max(j0,j1));
+    dlgCreation(+l.dataset.art, d, f, () => l.querySelectorAll('.sel').forEach(c => c.classList.remove('sel')));
+  };
+}
+
+// ---------- fenêtres ----------
+function fenetre(html, init) {
+  const d = document.createElement('dialog'); d.innerHTML = `<div class="dlg">${html}</div>`;
+  document.body.appendChild(d); d.addEventListener('close', () => d.remove()); d.showModal(); init && init(d); return d;
+}
+// Sélecteur de chantier avec recherche + création à la volée
+function selecteurChantier(d, idInitial, surChoix) {
+  const inp = d.querySelector('.rch'), liste = d.querySelector('.liste-ch'), nv = d.querySelector('.nouveau');
+  let choisi = idInitial || null;
+  const maj = () => {
+    const q = inp.value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s/g,'');
+    const res = D.chantiers.filter(c => !c.archive && libCh(c).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s/g,'').includes(q)).slice(0, 30);
+    liste.innerHTML = res.map(c => `<div data-c="${c.id}" class="${c.id===choisi?'on':''}">${esc(libCh(c))}${c.facturable?'':' <small>(non facturable)</small>'}</div>`).join('')
+      + (inp.value.trim() && !res.some(c => libCh(c) === inp.value.trim()) ? `<div class="nv" data-nv="1">＋ Créer un nouveau chantier « ${esc(inp.value.trim())} »</div>` : '');
+  };
+  inp.oninput = maj; maj();
+  liste.onclick = e => {
+    const x = e.target.closest('div'); if (!x) return;
+    if (x.dataset.nv) { // pré-remplit numéro / nom depuis la saisie
+      const m = inp.value.trim().match(/^([\d ]+\d)?\s*-?\s*(.*)$/);
+      nv.style.display = 'block'; nv.querySelector('[name=numero]').value = (m[1]||'').trim(); nv.querySelector('[name=nom]').value = m[2] || '';
+      nv.querySelector('[name=nom]').focus(); choisi = 'nouveau'; return;
+    }
+    choisi = +x.dataset.c; nv.style.display = 'none'; inp.value = libCh(ch(choisi)); maj(); surChoix && surChoix(choisi);
+  };
+  return () => {
+    if (choisi === 'nouveau') {
+      const nom = nv.querySelector('[name=nom]').value.trim(); if (!nom) { alert('Indiquez le nom du nouveau chantier.'); return null; }
+      const c = { id: prochainId++, numero: nv.querySelector('[name=numero]').value.trim(), nom, responsable: nv.querySelector('[name=resp]').value.trim(), facturable: nv.querySelector('[name=fact]').checked };
+      D.chantiers.push(c); return c.id;
+    }
+    if (!choisi) { alert('Choisissez un chantier.'); return null; }
+    return choisi;
+  };
+}
+const blocChantier = `
+  <label class="champ"><span>Chantier</span><input class="rch" placeholder="Tapez un n° ou un nom : 858, Gilly, Santos…" autocomplete="off"></label>
+  <div class="liste-ch"></div>
+  <div class="nouveau rapide" style="display:none"><h3>Nouveau chantier</h3>
+    <div class="deux"><label class="champ"><span>N° de chantier</span><input name="numero" placeholder="858 926"></label>
+    <label class="champ"><span>Nom</span><input name="nom"></label></div>
+    <div class="deux"><label class="champ"><span>Responsable (facultatif)</span><input name="resp"></label>
+    <label class="champ" style="justify-content:flex-end"><span></span><label><input type="checkbox" name="fact" checked style="width:auto"> Facturable</label></label></div>
+  </div>`;
+
+function dlgCreation(artId, debut, fin, alFermer) {
+  const opts = visibles().map(a => `<option value="${a.id}" ${a.id===artId?'selected':''}>${esc(a.cat)} — ${esc(a.num)}</option>`).join('');
+  const d = fenetre(`
+    <h2>Nouvelle affectation</h2><div class="sous">Pas d'affectation = matériel disponible au dépôt.</div>
+    <label class="champ"><span>Article</span><select class="art">${opts}</select></label>
+    <div class="deux"><label class="champ"><span>Du</span><input class="d1" value="${jj(debut)}" placeholder="JJ.MM.AAAA"></label>
+    <label class="champ"><span>Au (inclus)</span><input class="d2" value="${jj(fin)}" placeholder="JJ.MM.AAAA"></label></div>
+    ${blocChantier}
+    <label class="champ" style="margin-top:10px"><span>Responsable pour cette affectation (si différent de celui du chantier)</span><input class="resp" placeholder="Laisser vide = responsable du chantier"></label>
+    <div class="actions"><button class="ann">Annuler</button><button class="p ok">Enregistrer</button></div>`,
+    d => d.querySelector(artId ? '.rch' : '.art').focus());
+  const valider = selecteurChantier(d, null);
+  d.addEventListener('close', () => alFermer && alFermer());
+  d.querySelector('.ann').onclick = () => d.close();
+  d.querySelector('.ok').onclick = () => {
+    const a = +d.querySelector('.art').value, d1 = lire(d.querySelector('.d1').value), d2 = lire(d.querySelector('.d2').value);
+    if (!d1 || !d2 || d2 < d1) { alert('Dates invalides (format JJ.MM.AAAA, fin ≥ début).'); return; }
+    const c = valider(); if (!c) return;
+    const nouvelle = { id: prochainId++, article: a, chantier: c, debut: d1, fin: d2, responsable: d.querySelector('.resp').value.trim() };
+    d.close(); poserAvecConflit(nouvelle);
+  };
+}
+
+function poserAvecConflit(nv, ignorer) {
+  const conflits = D.affectations.filter(x => x.article === nv.article && x.id !== ignorer && x.debut <= nv.fin && x.fin >= nv.debut);
+  if (!conflits.length) { D.affectations.push(nv); rendre(); return; }
+  const d = fenetre(`<h2>Chevauchement</h2>
+    <div class="sous">${esc(art(nv.article).num)} est déjà affecté sur cette période :<br>${conflits.map(x => `• ${esc(libelle(x))} (${jj(x.debut)} → ${jj(x.fin)})`).join('<br>')}</div>
+    <div class="choix">
+      <button class="cp"><b>Couper l'existante</b><small>Garder l'ancienne affectation avant et après la nouvelle période (raccourcie ou coupée en deux).</small></button>
+      <button class="rp"><b>Remplacer</b><small>Supprimer entièrement l'ancienne affectation.</small></button>
+      <button class="an"><b>Annuler</b><small>Ne rien changer.</small></button>
+    </div>`);
+  d.querySelector('.an').onclick = () => { d.close(); rendre(); };
+  d.querySelector('.rp').onclick = () => { D.affectations = D.affectations.filter(x => !conflits.includes(x)); D.affectations.push(nv); d.close(); rendre(); };
+  d.querySelector('.cp').onclick = () => {
+    for (const x of conflits) {
+      D.affectations = D.affectations.filter(y => y !== x);
+      if (x.debut < nv.debut) D.affectations.push({ ...x, fin: plus(nv.debut, -1) });
+      if (x.fin > nv.fin) D.affectations.push({ ...x, id: prochainId++, debut: plus(nv.fin, 1) });
+    }
+    D.affectations.push(nv); d.close(); rendre();
+  };
+}
+
+function dlgAffectation(id) {
+  const af = D.affectations.find(x => x.id === id), a = art(af.article), c = ch(af.chantier);
+  const defaut = AUJ >= af.debut && AUJ <= af.fin ? AUJ : af.fin;
+  const d = fenetre(`
+    <h2><span class="pas" style="background:${a.couleur}"></span> ${esc(a.num)} — ${esc(libelle(af))}</h2>
+    <div class="sous">Du ${jj(af.debut)} au ${jj(af.fin)}</div>
+    <div class="rapide"><h3>Actions rapides</h3>
+      <div class="l"><button class="rendre">Rendre au dépôt</button> dernier jour sur le chantier : <input class="dr" value="${jj(defaut)}"></div>
+      <div class="l"><button class="changer">Changer de chantier</button> à partir du : <input class="dc" value="${jj(plus(defaut,1) <= af.fin ? plus(defaut,1) : defaut)}"></div>
+      <div class="aide">Pour « Changer de chantier », choisissez le nouveau chantier ci-dessous.</div>
+    </div>
+    ${blocChantier}
+    <div class="deux" style="margin-top:10px"><label class="champ"><span>Du</span><input class="d1" value="${jj(af.debut)}"></label>
+    <label class="champ"><span>Au (inclus)</span><input class="d2" value="${jj(af.fin)}"></label></div>
+    <label class="champ"><span>Responsable pour cette affectation</span><input class="resp" value="${esc(af.responsable)}" placeholder="${esc(c.responsable || 'Responsable du chantier')}"></label>
+    <div class="actions"><button class="d sup" style="margin-right:auto">Supprimer</button><button class="ann">Fermer</button><button class="p ok">Enregistrer</button></div>`);
+  d.querySelector('.rch').value = libCh(c);
+  let nouveauChoisi = false;
+  const valider = selecteurChantier(d, c.id, () => nouveauChoisi = true);
+  d.querySelector('.liste-ch').addEventListener('click', e => { if (e.target.closest('[data-nv]')) nouveauChoisi = true; });
+  d.querySelector('.ann').onclick = () => d.close();
+  d.querySelector('.sup').onclick = () => { if (confirm('Supprimer cette affectation ?')) { D.affectations = D.affectations.filter(x => x !== af); d.close(); rendre(); } };
+  d.querySelector('.rendre').onclick = () => {
+    const r = lire(d.querySelector('.dr').value); if (!r || r < af.debut) { alert('Date invalide.'); return; }
+    if (r < af.fin) af.fin = r; d.close(); rendre();
+  };
+  d.querySelector('.changer').onclick = () => {
+    const r = lire(d.querySelector('.dc').value); if (!r || r <= af.debut || r > af.fin) { alert('La date doit être comprise dans l\'affectation (après le premier jour).'); return; }
+    if (!nouveauChoisi) { alert('Choisissez d\'abord le nouveau chantier dans la liste.'); d.querySelector('.rch').focus(); return; }
+    const nc = valider(); if (!nc) return;
+    D.affectations.push({ ...af, id: prochainId++, chantier: nc, debut: r, responsable: '' });
+    af.fin = plus(r, -1); d.close(); rendre();
+  };
+  d.querySelector('.ok').onclick = () => {
+    const d1 = lire(d.querySelector('.d1').value), d2 = lire(d.querySelector('.d2').value);
+    if (!d1 || !d2 || d2 < d1) { alert('Dates invalides.'); return; }
+    const nc = valider(); if (!nc) return;
+    const copie = { ...af, debut: d1, fin: d2, chantier: nc, responsable: d.querySelector('.resp').value.trim() };
+    D.affectations = D.affectations.filter(x => x !== af); d.close(); poserAvecConflit(copie);
+  };
+}
+
+// =====================================================================
+// PARC
+// =====================================================================
+function vueParc() {
+  M().innerHTML = `<div class="titre"><h1>Parc matériel</h1><span class="esp"></span><button class="p" onclick="ouvrirFiche(null)">＋ Ajouter un matériel</button></div>
+  <div class="outils"><input id="q" type="search" placeholder="Rechercher (n°, catégorie, chantier…)" style="width:280px">
+  <select id="fc"><option value="">Toutes les catégories</option>${D.categories.map(c => `<option>${esc(c)}</option>`).join('')}</select>
+  <select id="fs"><option value="actif">Actifs</option><option value="">Tous les statuts</option><option value="reparation">En réparation / SAV</option><option value="perdu">Perdu / volé</option><option value="reforme">Réformé / vendu</option></select>
+  <select id="fd"><option value="">Affectés et disponibles</option><option value="dispo">Disponibles aujourd'hui</option><option value="aff">Affectés aujourd'hui</option></select></div>
+  <table class="t"><thead><tr><th></th><th>Catégorie</th><th>N° interne</th><th>Code compta</th><th>Marque / modèle</th><th>Statut</th><th>Où est-il aujourd'hui ?</th><th>Depuis</th></tr></thead><tbody id="tb"></tbody></table>`;
+  const maj = () => {
+    const q = document.getElementById('q').value.toLowerCase(), fc = document.getElementById('fc').value, fs = document.getElementById('fs').value, fd = document.getElementById('fd').value;
+    document.getElementById('tb').innerHTML = D.articles.filter(a => {
+      const o = ouAuj(a.id); const t = (a.num + a.cat + a.code + (o ? libelle(o) : 'disponible')).toLowerCase();
+      return t.includes(q) && (!fc || a.cat === fc) && (!fs || a.statut === fs) && (!fd || (fd === 'dispo' ? !o : !!o));
+    }).map(a => { const o = ouAuj(a.id);
+      return `<tr onclick="ouvrirFiche(${a.id})"><td><span class="pas" style="background:${a.couleur}"></span></td><td>${esc(a.cat)}</td><td><b>${esc(a.num)}</b></td><td>${esc(a.code)}</td><td>${esc(a.marque)} ${esc(a.modele)}</td>
+      <td><span class="badge ${a.statut==='actif'?'':'rep'}">${a.statut==='actif'?'Actif':'En réparation / SAV'}</span></td>
+      <td>${o ? esc(libelle(o)) : (a.statut === 'actif' ? '<span class="dispo">Disponible</span>' : '—')}</td><td>${o ? jj(o.debut) : ''}</td></tr>`; }).join('');
+  };
+  ['q','fc','fs','fd'].forEach(i => document.getElementById(i).oninput = maj); maj();
+}
+
+function ouvrirFiche(id) { etat.ficheId = id; etat.vue = 'fiche'; rendre(); }
+function vueFiche() {
+  const nouveau = etat.ficheId === null;
+  const a = nouveau ? { cat: D.categories[0], num: '', code: '', couleur: PAL[D.articles.filter(x => x.cat === D.categories[0]).length % 7], statut: 'actif', marque: '', modele: '', serie: '', designation: '' } : art(etat.ficheId);
+  const hist = nouveau ? [] : D.affectations.filter(x => x.article === a.id).sort((x, y) => y.debut.localeCompare(x.debut));
+  M().innerHTML = `<div class="titre"><button onclick="etat.vue='parc';rendre()">◀ Parc</button><h1>${nouveau ? 'Nouveau matériel' : esc(a.num)}</h1></div>
+  <div class="fiche"><div style="display:flex;flex-direction:column;gap:16px">
+   <div class="carte"><div class="grille">
+    <label class="champ"><span>Catégorie *</span><div style="display:flex;gap:6px"><select id="f-cat">${D.categories.map(c => `<option ${c===a.cat?'selected':''}>${esc(c)}</option>`).join('')}</select><button title="Nouvelle catégorie">＋</button></div></label>
+    <label class="champ"><span>Statut</span><select id="f-st"><option value="actif">Actif</option><option value="reparation" ${a.statut==='reparation'?'selected':''}>En réparation / SAV</option><option>Perdu / volé</option><option>Réformé / vendu</option></select></label>
+    <label class="champ"><span>N° interne * (affiché sur le planning et le PDF)</span><input id="f-num" value="${esc(a.num)}" placeholder="ex. 953A11"></label>
+    <label class="champ"><span>Code article compta (N° MS)</span><input id="f-code" value="${esc(a.code)}" placeholder="ex. 112"></label>
+    <label class="champ large"><span>Désignation</span><input value="${esc(a.designation)}" placeholder="ex. Canne GPS Leica GS18 T"></label>
+    <div class="champ large"><span>Couleur sur le planning et le PDF</span><div class="palette" id="pal">${PAL.map(p => `<b style="background:${p}" class="${p===a.couleur?'on':''}" data-c="${p}"></b>`).join('')}<input type="color" value="${a.couleur}" style="width:36px;height:26px;padding:1px"></div></div>
+   </div></div>
+   <div class="carte"><div class="grille">
+    <label class="champ"><span>Marque</span><input value="${esc(a.marque)}"></label><label class="champ"><span>Modèle</span><input value="${esc(a.modele)}"></label>
+    <label class="champ"><span>N° de série</span><input value="${esc(a.serie)}"></label><label class="champ"><span>Fournisseur</span><input></label>
+    <label class="champ"><span>Date d'achat</span><input placeholder="JJ.MM.AAAA"></label><label class="champ"><span>Prix (CHF)</span><input placeholder="0.00"></label>
+    <label class="champ"><span>Fin de garantie</span><input placeholder="JJ.MM.AAAA"></label><span></span>
+    <label class="champ large"><span>Notes</span><textarea></textarea></label>
+   </div></div>
+   <div style="display:flex;gap:8px"><button class="p" id="f-ok">Enregistrer</button>${nouveau ? '<button id="f-ok2">Enregistrer et ajouter un autre</button>' : '<button onclick="dupliquer()">Dupliquer (même catégorie, marque, modèle…)</button>'}<span class="esp"></span>${nouveau ? '' : '<button class="d">Supprimer</button>'}</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:16px">
+   <div class="carte"><h3 style="margin:0 0 8px;font-size:13px">Photo</h3><div class="photo">Glissez une photo ici<br>ou cliquez pour en choisir une</div></div>
+   <div class="carte"><h3 style="margin:0 0 8px;font-size:13px">Documents</h3><div class="aide">Notice, certificat, facture… (glisser-déposer)</div></div>
+   <div class="carte"><h3 style="margin:0 0 8px;font-size:13px">Historique des affectations</h3>
+    ${hist.length ? `<table class="t" style="font-size:12.5px"><tbody>${hist.map(x => `<tr><td>${jj(x.debut)} → ${jj(x.fin)}</td><td>${esc(libelle(x))}</td></tr>`).join('')}</tbody></table>` : '<div class="aide">Aucune affectation.</div>'}</div>
+   <div class="carte"><h3 style="margin:0 0 8px;font-size:13px">Accessoires</h3><div class="aide">Batteries, trépied… (prévu après le planning)</div></div>
+  </div></div>`;
+  document.getElementById('pal').onclick = e => { const c = e.target.dataset.c; if (c) { document.querySelectorAll('#pal b').forEach(b => b.classList.toggle('on', b === e.target)); document.querySelector('#pal input').value = c; } };
+  document.getElementById('f-cat').onchange = e => { if (nouveau) { const c = PAL[D.articles.filter(x => x.cat === e.target.value).length % 7]; document.querySelectorAll('#pal b').forEach(b => b.classList.toggle('on', b.dataset.c === c)); document.querySelector('#pal input').value = c; } };
+  const enregistrer = (encore) => {
+    const num = document.getElementById('f-num').value.trim(); if (!num) { alert('Le n° interne est obligatoire.'); return; }
+    if (D.articles.some(x => x.num.toLowerCase() === num.toLowerCase() && x !== a)) { alert('Ce n° interne existe déjà.'); return; }
+    const v = { cat: document.getElementById('f-cat').value, num, code: document.getElementById('f-code').value.trim(), couleur: document.querySelector('#pal input').value.toUpperCase(), statut: document.getElementById('f-st').value };
+    if (nouveau) { const n = { ...a, ...v, id: prochainId++ }; // insère à la fin de sa catégorie
+      const i = D.articles.map(x => x.cat).lastIndexOf(v.cat); D.articles.splice(i + 1, 0, n); }
+    else Object.assign(a, v);
+    if (encore) { etat.ficheId = null; rendre(); document.getElementById('f-cat').value = v.cat; document.getElementById('f-cat').onchange({ target: { value: v.cat } }); document.getElementById('f-num').focus(); }
+    else { etat.vue = 'parc'; rendre(); }
+  };
+  document.getElementById('f-ok').onclick = () => enregistrer(false);
+  const b2 = document.getElementById('f-ok2'); if (b2) b2.onclick = () => enregistrer(true);
+  if (nouveau) document.getElementById('f-num').focus();
+}
+function dupliquer() { const a = art(etat.ficheId); etat.ficheId = null; rendre(); document.getElementById('f-cat').value = a.cat; document.getElementById('f-code').value = a.code; }
+
+// =====================================================================
+// CHANTIERS
+// =====================================================================
+function vueChantiers() {
+  M().innerHTML = `<div class="titre"><h1>Chantiers</h1><span class="esp"></span><button class="p">＋ Nouveau chantier</button></div>
+  <div class="outils"><input type="search" id="q" placeholder="Rechercher un chantier" style="width:280px"><label class="aide"><input type="checkbox" style="width:auto"> Afficher les chantiers archivés</label></div>
+  <table class="t"><thead><tr><th>N°</th><th>Nom</th><th>Responsable</th><th>Facturable</th><th>Matériel en ce moment</th><th>Affectations</th></tr></thead><tbody id="tb"></tbody></table>`;
+  const maj = () => { const q = document.getElementById('q').value.toLowerCase();
+    document.getElementById('tb').innerHTML = [...D.chantiers].sort((a, b) => (a.numero || 'zzz').localeCompare(b.numero || 'zzz', 'fr', { numeric: true })).filter(c => libCh(c).toLowerCase().includes(q)).map(c => {
+      const en = D.affectations.filter(x => x.chantier === c.id && x.debut <= AUJ && x.fin >= AUJ).map(x => art(x.article).num);
+      return `<tr><td><b>${esc(c.numero)}</b></td><td>${esc(c.nom)}</td><td>${esc(c.responsable)}</td><td>${c.facturable ? 'Oui' : '<b>Non</b>'}</td><td>${esc(en.join(', '))}</td><td>${D.affectations.filter(x => x.chantier === c.id).length}</td></tr>`; }).join(''); };
+  document.getElementById('q').oninput = maj; maj();
+}
+
+// =====================================================================
+// TABLEAU DE BORD
+// =====================================================================
+function vueTableau() {
+  const actifs = D.articles.filter(a => a.statut === 'actif'), aff = actifs.filter(a => ouAuj(a.id)), dispo = actifs.filter(a => !ouAuj(a.id));
+  const fin7 = plus(AUJ, 7), retours = D.affectations.filter(x => x.fin >= AUJ && x.fin <= fin7);
+  M().innerHTML = `<div class="titre"><h1>Tableau de bord</h1><span class="aide">au ${jj(AUJ)}</span></div>
+  <div class="tuiles">
+   <div class="tuile"><div class="v">${D.articles.length}</div><div class="l">Articles au total</div></div>
+   <div class="tuile"><div class="v">${aff.length}</div><div class="l">Affectés aujourd'hui</div></div>
+   <div class="tuile"><div class="v" style="color:var(--ok)">${dispo.length}</div><div class="l">Disponibles au dépôt</div></div>
+   <div class="tuile"><div class="v" style="color:var(--att)">${D.articles.filter(a => a.statut === 'reparation').length}</div><div class="l">En réparation / SAV</div></div>
+   <div class="tuile"><div class="v">0.00 CHF</div><div class="l">Valeur du parc (prix à renseigner)</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+   <div class="carte"><h3 style="margin:0 0 8px">Disponibles aujourd'hui</h3>${dispo.map(a => `<div style="padding:4px 0"><span class="pas" style="background:${a.couleur}"></span> <b>${esc(a.num)}</b> <span class="aide">${esc(a.cat)}</span></div>`).join('')}</div>
+   <div class="carte"><h3 style="margin:0 0 8px">Fins d'affectation dans les 7 jours</h3>${retours.length ? retours.map(x => `<div style="padding:4px 0"><b>${esc(art(x.article).num)}</b> — ${esc(libelle(x))} <span class="aide">jusqu'au ${jj(x.fin)}</span></div>`).join('') : '<div class="aide">Aucune.</div>'}</div>
+  </div>`;
+}
+
+// =====================================================================
+// APERÇU PDF (A4 paysage)
+// =====================================================================
+function vuePdf() {
+  const { annee, mois } = etat, n = nbJours(annee, mois), debut = jourDe(annee, mois, 1), fin = jourDe(annee, mois, n);
+  const cols = `46px 72px repeat(${n}, 1fr)`;
+  let h = `<div class="titre"><button onclick="etat.vue='planning';rendre()">◀ Planning</button><button onclick="changerMoisPdf(-1)">◀</button><h1 style="text-align:center">${MOIS[mois]} ${annee}</h1><button onclick="changerMoisPdf(1)">▶</button>
+  <span class="aide">Aperçu de la page A4 paysage. Fichier : <b>${annee}_${String(mois+1).padStart(2,'0')}.pdf</b></span><span class="esp"></span><button class="p" onclick="alert('Dans l\\'application, ce bouton enregistre directement le fichier ${annee}_${String(mois+1).padStart(2,'0')}.pdf.')">Télécharger le PDF</button></div>
+  <div class="feuille-zone"><div class="feuille"><div class="pdf">
+   <div class="r tt" style="grid-template-columns:50px ${cols}"><div style="grid-row:1/4;grid-column:1"></div><div style="grid-row:1;grid-column:2/4"></div><div style="grid-row:2/4;grid-column:3;border-right:1.5px solid #000"></div>
+    <div class="mois" style="grid-row:1">${MOIS[mois]}</div>`;
+  for (let j = 1; j <= n; j++) h += `<div class="dt" style="grid-row:2;grid-column:${j+3}">${jj(jourDe(annee, mois, j))}</div>`;
+  for (let j = 1; j <= n; j++) h += `<div class="jr" style="grid-row:3;grid-column:${j+3}">${JC[dte(jourDe(annee, mois, j)).getUTCDay()]}</div>`;
+  h += `<div class="hcode" style="grid-row:2/4;grid-column:2">N° MS -<br>A facturer</div></div>`;
+  for (const [cat, as] of groupes(D.articles.filter(a => a.statut === 'actif'))) {
+    h += `<div class="g" style="flex:${Math.max(as.length, 2)}"><div class="cat" style="width:50px">${esc(cat)}</div><div class="ls">`;
+    for (const a of as) {
+      h += `<div class="l" style="grid-template-columns:${cols}"><div class="co" style="grid-row:1">${esc(a.code)}</div><div class="nu" style="grid-row:1;background:${a.couleur}">${esc(a.num)}</div>`;
+      for (let j = 1; j <= n; j++) h += `<div class="cj" style="grid-column:${j+2}"></div>`;
+      for (const af of D.affectations.filter(x => x.article === a.id && x.fin >= debut && x.debut <= fin)) {
+        const j1 = af.debut < debut ? 1 : +af.debut.slice(8), j2 = af.fin > fin ? n : +af.fin.slice(8);
+        h += `<div class="bp" style="grid-column:${j1+2}/${j2+3};background:${a.couleur}">${esc(libelle(af))}</div>`;
+      }
+      h += `</div>`;
+    }
+    h += `</div></div>`;
+  }
+  M().innerHTML = h + `</div></div></div>`;
+}
+function changerMoisPdf(n) { etat.mois = (etat.mois + n + 12) % 12; rendre(); }
+
+rendre();
+</script>
+</body>
+</html>
