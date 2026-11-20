@@ -118,10 +118,71 @@ table.t tbody tr:hover{background:var(--primc);cursor:pointer}
 .pdf .l .nu{font-size:9px;display:flex;align-items:center;padding-left:3px;border-right:1.5px solid #000;white-space:nowrap;overflow:hidden}
 .pdf .l .cj{border-left:.5px solid #999;grid-row:1}
 .pdf .l .bp{grid-row:1;border:.75px solid #333;font-size:7.5px;display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden;margin:1.5px 0;z-index:1}
+
+/* =================== Sélecteur de style =================== */
+.styles{float:right;display:inline-flex;gap:4px;align-items:center}
+.styles button{padding:2px 10px;font-size:12px;background:#fff8e6}.styles button.on{background:#6b4a00;color:#fff;border-color:#6b4a00}
+
+/* =================== B. ÉPURÉ =================== */
+body.da-epure{--fond:#f7f8fa;--prim:#2563eb;--primc:#eaf1fe;--bord:#e6e9ee;--bordf:#d3d8df;--texte:#111827;--doux:#6b7280;font-family:"Segoe UI Variable","Segoe UI",Inter,system-ui,sans-serif}
+.da-epure header{background:#fff;color:var(--texte);border-bottom:1px solid var(--bord);box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.da-epure header b::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--prim);margin-right:8px}
+.da-epure header nav a{color:var(--doux)}.da-epure header nav a:hover{color:var(--texte);background:#f3f4f6}
+.da-epure header nav a.on{color:var(--prim);border-bottom-color:var(--prim)}
+.da-epure button{border-color:var(--bordf);border-radius:8px}.da-epure button.p{background:var(--prim);border-color:var(--prim)}.da-epure button.p:hover{background:#1d4ed8}
+.da-epure input,.da-epure select,.da-epure textarea{border-radius:8px}
+.da-epure .titre h1{font-weight:650;letter-spacing:-.01em}
+.da-epure .planning{border:none;border-radius:12px;box-shadow:0 1px 3px rgba(16,24,40,.08),0 1px 2px rgba(16,24,40,.04);overflow:clip}
+.da-epure .pl-tete{border-bottom:1px solid var(--bord)}
+.da-epure .pl-tete .j{border-left-color:transparent;color:var(--doux);font-size:10.5px;text-transform:uppercase;letter-spacing:.03em}
+.da-epure .pl-tete .j b{color:var(--texte);font-size:13px;font-weight:600;width:24px;height:24px;line-height:24px;margin:0 auto 2px;border-radius:50%}
+.da-epure .pl-tete .j.auj{background:none;color:#e11d48}.da-epure .pl-tete .j.auj b{background:#e11d48;color:#fff}
+.da-epure .pl-tete .j.we,.da-epure .pl-ligne .c.we{background:#f7f8fa}
+.da-epure .pl-groupe{border-bottom:1px solid var(--bord)}
+.da-epure .pl-cat{border-right:none;background:#fff}.da-epure .pl-cat span{color:var(--doux);font-weight:600;font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+.da-epure .pl-ligne{border-bottom:1px solid #f1f3f6;min-height:32px}
+.da-epure .pl-ligne .code{background:#f9fafb;border-right:1px solid #f1f3f6;color:var(--doux)}
+.da-epure .pl-ligne .num{background:#fff!important;border-right:1px solid var(--bord);font-weight:600;padding-left:14px;position:relative}
+.da-epure .pl-ligne .num::before{content:"";position:absolute;left:5px;top:7px;bottom:7px;width:4px;border-radius:2px;background:var(--c)}
+.da-epure .pl-ligne .c{border-left-color:#f3f4f6}.da-epure .pl-ligne .c.lundi{border-left-color:#e5e7eb}
+.da-epure .pl-ligne .c.auj{background:none;box-shadow:inset 2px 0 0 #e11d48}
+.da-epure .barre{border-width:0 0 0 4px;border-style:solid;border-radius:6px;margin:5px 2px;justify-content:flex-start;padding-left:8px;font-weight:500;box-shadow:none}
+.da-epure .barre:hover{box-shadow:0 2px 6px rgba(16,24,40,.15)}
+.da-epure .barre.suite-g{border-left-style:solid;border-radius:0 6px 6px 0}.da-epure .barre.suite-d{border-right:none;border-radius:6px 0 0 6px;-webkit-mask:linear-gradient(90deg,#000 calc(100% - 18px),transparent);mask:linear-gradient(90deg,#000 calc(100% - 18px),rgba(0,0,0,.25))}
+.da-epure table.t{border:none;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(16,24,40,.08)}
+.da-epure table.t th{background:#f9fafb;text-transform:uppercase;font-size:11px;letter-spacing:.04em}
+.da-epure .carte,.da-epure .tuile{border:none;border-radius:12px;box-shadow:0 1px 3px rgba(16,24,40,.08)}
+
+/* =================== C. CHANTIER =================== */
+body.da-chantier{--fond:#eceef1;--prim:#f2a20c;--primc:#fff3dc;--texte:#16191d;--doux:#5b636e;--bordf:#aeb5be}
+.da-chantier header{position:fixed;left:0;top:0;bottom:0;width:190px;height:auto;flex-direction:column;align-items:stretch;gap:0;padding:0;background:#1c1f24}
+.da-chantier header b{padding:20px 18px;font-size:17px;border-bottom:1px solid #2e333b;color:#fff}
+.da-chantier header b::after{content:"Parc topo · Planning";display:block;font-size:11px;font-weight:400;color:#8a929c;margin-top:2px}
+.da-chantier header nav{flex-direction:column;height:auto;padding:10px 0}
+.da-chantier header nav a{padding:12px 18px;border-bottom:none;border-left:4px solid transparent;color:#b9c0c8}
+.da-chantier header nav a.on{border-left-color:var(--prim);background:#272b31;color:#fff}
+.da-chantier main,.da-chantier .bandeau{margin-left:190px}
+.da-chantier .pl-tete{top:0;background:#2b2f36;border-bottom:3px solid var(--prim)}
+.da-chantier .pl-tete .h{color:#aab2bc}.da-chantier .pl-tete .j{color:#c8ced5;border-left-color:#3a3f47}.da-chantier .pl-tete .j b{color:#fff}
+.da-chantier .pl-tete .j.we{background:#23262c}.da-chantier .pl-tete .j.auj{background:var(--prim);color:#1c1f24}.da-chantier .pl-tete .j.auj b{color:#1c1f24}
+.da-chantier .planning{border:none;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+.da-chantier .pl-groupe{border-bottom:3px solid #1c1f24}
+.da-chantier .pl-cat{background:#2b2f36;border-right:none}.da-chantier .pl-cat span{color:#fff;letter-spacing:.05em}
+.da-chantier .pl-ligne{min-height:27px;border-bottom-color:#d5dae0}
+.da-chantier .pl-ligne .code{background:#cfd4da;font-weight:600}
+.da-chantier .pl-ligne .num{font-weight:700;border-right:2px solid #1c1f24}
+.da-chantier .pl-ligne .c.we{background:#e3e6ea}.da-chantier .pl-ligne .c.auj{background:rgba(242,162,12,.18)}
+.da-chantier .barre{margin:3px 1px;border-radius:2px;font-weight:600;filter:saturate(1.9) brightness(.97);border-width:1px 1px 1px 1px}
+.da-chantier .barre:hover{filter:saturate(2.1) brightness(.92)}
+.da-chantier button{border-radius:4px}.da-chantier button.p{background:var(--prim);border-color:#d68d00;color:#1c1f24;font-weight:600}.da-chantier button.p:hover{background:#e09400}
+.da-chantier .seg button.on{background:#1c1f24;color:#fff}
+.da-chantier .titre h1{text-transform:uppercase;letter-spacing:.02em}
+.da-chantier table.t th{background:#2b2f36;color:#e3e6ea}
+.da-chantier .tuile{border-left:4px solid var(--prim)}
 </style>
 </head>
 <body>
-<div class="bandeau"><b>Maquette à valider</b> — données réelles 2026 reprises de votre Excel. Pour la démonstration, « aujourd'hui » est fixé au <b>20.10.2026</b>. Les modifications sont perdues si vous rechargez la page.</div>
+<div class="bandeau"><span class="styles">Style : <button data-da="" class="on">A. Classique</button><button data-da="da-epure">B. Épuré</button><button data-da="da-chantier">C. Chantier</button></span><b>Maquette à valider</b> — données réelles 2026 reprises de votre Excel. Pour la démonstration, « aujourd'hui » est fixé au <b>20.10.2026</b>. Les modifications sont perdues si vous rechargez la page.</div>
 <header><b>Matériel topo</b><nav id="nav">
 <a data-v="planning" class="on">Planning</a><a data-v="parc">Parc</a><a data-v="chantiers">Chantiers</a><a data-v="tableau">Tableau de bord</a><a data-v="pdf">PDF du mois</a>
 </nav></header>
@@ -136,6 +197,8 @@ const JC = ['dim','lun','mar','mer','jeu','ven','sam'];
 const PAL = ['#F2CEEF','#C1E4F5','#FBE2D5','#C1F0C8','#FFB7B7','#FFFFB9','#CCE0F4','#E2D5F5','#FFE699','#D9F2D0','#F8CBAD','#D9D9D9'];
 D.articles.forEach(a => { a.statut = 'actif'; a.marque=''; a.modele=''; a.serie=''; a.prix=null; a.designation=''; });
 D.articles.find(a => a.num === 'SOKKIA').statut = 'reparation';
+document.querySelector('.styles').onclick = e => { const b = e.target.closest('button'); if (!b) return;
+  document.body.className = b.dataset.da; document.querySelectorAll('.styles button').forEach(x => x.classList.toggle('on', x === b)); };
 let etat = { vue: 'planning', annee: 2026, mois: 9, mode: 'mois', ficheId: null, tri: 'ordre', voirInactifs: false };
 let prochainId = 1000;
 
@@ -225,7 +288,7 @@ function grilleMois() {
     for (const a of as) {
       h += `<div class="pl-ligne" style="grid-template-columns:${cols}" data-art="${a.id}">
         <div class="code" style="grid-row:1;grid-column:1">${esc(a.code)}</div>
-        <div class="num" style="grid-row:1;grid-column:2;background:${a.couleur}" onclick="ouvrirFiche(${a.id})" title="Ouvrir la fiche">${esc(a.num)}${a.statut!=='actif'?' <small>(SAV)</small>':''}</div>`;
+        <div class="num" style="grid-row:1;grid-column:2;background:${a.couleur};--c:${a.couleur}" onclick="ouvrirFiche(${a.id})" title="Ouvrir la fiche">${esc(a.num)}${a.statut!=='actif'?' <small>(SAV)</small>':''}</div>`;
       for (let j = 1; j <= n; j++) { const s = jourDe(annee, mois, j), w = dte(s).getUTCDay();
         h += `<div class="c ${s===AUJ?'auj':''} ${w===1?'lundi':''} ${w===0||w===6?'we':''}" style="grid-row:1;grid-column:${j+2}" data-j="${j}"></div>`; }
       for (const af of D.affectations.filter(x => x.article === a.id && x.fin >= debut && x.debut <= fin)) {
