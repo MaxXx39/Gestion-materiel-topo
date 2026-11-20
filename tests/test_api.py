@@ -114,6 +114,80 @@ class TestApi(unittest.TestCase):
         self.assertEqual(len(a["historique"]), 1)
 
 
+class TestAffectations(TestApi):
+    test_categories_ordre_et_doublon = test_article_creation_modification = test_validations = None
+    test_ordre_articles = test_photo_et_documents = test_chantiers = test_suppression_protegee_par_historique = None
+
+    def setUp(self):
+        super().setUp()
+        import api
+        api.PILE_ANNULATION.clear()
+        cat = self.categorie()
+        self.art = self.article(cat).get_json()["id"]
+        self.ch1 = self.c.post("/api/chantiers", json={"numero": "111 111", "nom": "A", "responsable": "Chef A"}).get_json()["id"]
+        self.ch2 = self.c.post("/api/chantiers", json={"numero": "222 222", "nom": "B"}).get_json()["id"]
+
+    def poser(self, debut, fin, ch=None, conflit=None, ident=None):
+        d = {"article_id": self.art, "chantier_id": ch or self.ch1, "date_debut": debut, "date_fin": fin, "conflit": conflit}
+        return self.c.put(f"/api/affectations/{ident}", json=d) if ident else self.c.post("/api/affectations", json=d)
+
+    def periodes(self):
+        return [(a["date_debut"], a["date_fin"], a["chantier_id"])
+                for a in self.c.get("/api/affectations").get_json()["affectations"]]
+
+    def test_creation_et_chevauchement(self):
+        r = self.poser("2026-10-01", "2026-10-31")
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(r.get_json()["chantier_responsable"], "Chef A")
+        r = self.poser("2026-10-10", "2026-10-15", self.ch2)
+        self.assertEqual(r.status_code, 409)
+        self.assertTrue(r.get_json()["chevauchement"])
+        self.assertEqual(len(r.get_json()["conflits"]), 1)
+        # Couper l'existante en deux.
+        self.assertEqual(self.poser("2026-10-10", "2026-10-15", self.ch2, "couper").status_code, 201)
+        self.assertEqual(self.periodes(), [("2026-10-01", "2026-10-09", self.ch1), ("2026-10-10", "2026-10-15", self.ch2),
+                                           ("2026-10-16", "2026-10-31", self.ch1)])
+        # Remplacer : supprime entièrement les affectations touchées.
+        self.assertEqual(self.poser("2026-10-05", "2026-10-12", self.ch2, "remplacer").status_code, 201)
+        self.assertEqual(self.periodes(), [("2026-10-05", "2026-10-12", self.ch2), ("2026-10-16", "2026-10-31", self.ch1)])
+
+    def test_modifier_sans_conflit_avec_soi_meme(self):
+        ident = self.poser("2026-10-01", "2026-10-10").get_json()["id"]
+        self.assertEqual(self.poser("2026-10-03", "2026-10-20", ident=ident).status_code, 200)
+        self.assertEqual(self.periodes(), [("2026-10-03", "2026-10-20", self.ch1)])
+
+    def test_rendre_couper_changer(self):
+        ident = self.poser("2026-10-01", "2026-10-31").get_json()["id"]
+        self.assertEqual(self.c.post(f"/api/affectations/{ident}/rendre", json={"date": "2026-10-20"}).status_code, 200)
+        self.assertEqual(self.periodes(), [("2026-10-01", "2026-10-20", self.ch1)])
+        r = self.c.post(f"/api/affectations/{ident}/couper", json={"date": "2026-10-11", "chantier_id": self.ch2})
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(self.periodes(), [("2026-10-01", "2026-10-10", self.ch1), ("2026-10-11", "2026-10-20", self.ch2)])
+        self.assertEqual(self.c.post(f"/api/affectations/{ident}/couper", json={"date": "2026-10-01"}).status_code, 400)
+        # Le parc voit l'affectation du jour.
+        a = self.c.get(f"/api/articles/{self.art}").get_json()
+        self.assertEqual(len(a["historique"]), 2)
+
+    def test_annuler(self):
+        ident = self.poser("2026-10-01", "2026-10-31").get_json()["id"]
+        self.c.post(f"/api/affectations/{ident}/rendre", json={"date": "2026-10-05"})
+        self.c.delete(f"/api/affectations/{ident}")
+        self.assertEqual(self.periodes(), [])
+        self.c.post("/api/annuler")
+        self.assertEqual(self.periodes(), [("2026-10-01", "2026-10-05", self.ch1)])
+        self.c.post("/api/annuler")
+        self.assertEqual(self.periodes(), [("2026-10-01", "2026-10-31", self.ch1)])
+        self.c.post("/api/annuler")
+        self.assertEqual(self.periodes(), [])
+        self.assertEqual(self.c.post("/api/annuler").status_code, 400)
+
+    def test_filtre_par_periode(self):
+        self.poser("2026-09-20", "2026-10-02")
+        self.poser("2026-11-01", "2026-11-05")
+        r = self.c.get("/api/affectations?debut=2026-10-01&fin=2026-10-31").get_json()
+        self.assertEqual(len(r["affectations"]), 1)
+
+
 def excel_fictif():
     """Petit classeur au format de l'ancien planning (données inventées)."""
     import openpyxl

@@ -1,6 +1,9 @@
 """Application Flask : pages et API JSON utilisées par l'interface."""
 import datetime as dt
+import json
 import re
+import sqlite3
+import threading
 import uuid
 from pathlib import Path
 
@@ -135,6 +138,7 @@ def creer_app():
     enregistrer_articles(app)
     enregistrer_chantiers(app)
     enregistrer_preremplissage(app)
+    enregistrer_affectations(app)
     return app
 
 
@@ -580,3 +584,200 @@ def enregistrer_preremplissage(app):
             con.rollback()
             raise
         return jsonify(compte)
+
+
+# --------------------------------------------------------------------------
+# Affectations (planning)
+# --------------------------------------------------------------------------
+
+REQUETE_AFFECTATIONS = """
+    SELECT af.*, ch.numero AS chantier_numero, ch.nom AS chantier_nom,
+           ch.responsable AS chantier_responsable, ch.facturable AS chantier_facturable
+    FROM affectation af JOIN chantier ch ON ch.id = af.chantier_id
+"""
+
+# Pile d'annulation (Ctrl+Z) : copies de la table des affectations avant chaque
+# modification. Gardée en mémoire : elle repart à zéro à chaque lancement.
+PILE_ANNULATION = []
+VERROU = threading.Lock()
+TAILLE_PILE = 30
+
+
+def memoriser(con):
+    rows = [ligne(r) for r in con.execute("SELECT * FROM affectation")]
+    with VERROU:
+        PILE_ANNULATION.append(json.dumps(rows))
+        del PILE_ANNULATION[:-TAILLE_PILE]
+
+
+def jour(iso, decalage):
+    return (dt.date.fromisoformat(iso) + dt.timedelta(days=decalage)).isoformat()
+
+
+def chevauchements(con, article_id, debut, fin, exclure=None):
+    return [ligne(r) for r in con.execute(
+        REQUETE_AFFECTATIONS + " WHERE af.article_id = ? AND af.date_debut <= ? AND af.date_fin >= ? AND af.id IS NOT ?"
+        " ORDER BY af.date_debut", (article_id, fin, debut, exclure))]
+
+
+def resoudre_chevauchements(con, conflits, debut, fin, mode):
+    """mode « remplacer » : supprime les affectations en conflit.
+    mode « couper » : garde leurs parties avant et après la nouvelle période."""
+    for x in conflits:
+        con.execute("DELETE FROM affectation WHERE id = ?", (x["id"],))
+        if mode != "couper":
+            continue
+        morceaux = []
+        if x["date_debut"] < debut:
+            morceaux.append((x["date_debut"], jour(debut, -1)))
+        if x["date_fin"] > fin:
+            morceaux.append((jour(fin, 1), x["date_fin"]))
+        for d, f in morceaux:
+            con.execute(
+                "INSERT INTO affectation (article_id, chantier_id, date_debut, date_fin, responsable, remarque)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (x["article_id"], x["chantier_id"], d, f, x["responsable"], x["remarque"]))
+
+
+def lire_affectation(d):
+    try:
+        article_id, chantier_id = int(d.get("article_id")), int(d.get("chantier_id"))
+    except (TypeError, ValueError):
+        raise ErreurApi("Choisissez un article et un chantier.")
+    trouver("article", article_id, "Article introuvable.")
+    trouver("chantier", chantier_id, "Chantier introuvable.")
+    debut = date_iso(d, "date_debut", "Du", True)
+    fin = date_iso(d, "date_fin", "Au", True)
+    if fin < debut:
+        raise ErreurApi("La date de fin doit être après la date de début.")
+    return {
+        "article_id": article_id, "chantier_id": chantier_id, "date_debut": debut, "date_fin": fin,
+        "responsable": texte(d, "responsable", False, "Responsable", 100),
+        "remarque": texte(d, "remarque", False, "Remarque", 1000),
+    }
+
+
+def poser(con, a, ident, mode):
+    """Crée (ident None) ou modifie une affectation en gérant les chevauchements."""
+    conflits = chevauchements(con, a["article_id"], a["date_debut"], a["date_fin"], ident)
+    if conflits and mode not in ("remplacer", "couper"):
+        raise ErreurChevauchement(conflits)
+    memoriser(con)
+    resoudre_chevauchements(con, conflits, a["date_debut"], a["date_fin"], mode)
+    if ident is None:
+        ident = con.execute(f"INSERT INTO affectation ({', '.join(a)}) VALUES ({', '.join('?' * len(a))})",
+                            list(a.values())).lastrowid
+    else:
+        con.execute(f"UPDATE affectation SET {', '.join(f'{k} = ?' for k in a)} WHERE id = ?", [*a.values(), ident])
+    con.commit()
+    return ident
+
+
+class ErreurChevauchement(ErreurApi):
+    def __init__(self, conflits):
+        super().__init__("Cet article est déjà affecté sur cette période.", 409)
+        self.conflits = conflits
+
+
+def affectation_dict(con, ident):
+    return ligne(con.execute(REQUETE_AFFECTATIONS + " WHERE af.id = ?", (ident,)).fetchone())
+
+
+def enregistrer_affectations(app):
+    @app.errorhandler(ErreurChevauchement)
+    def erreur_chevauchement(e):
+        return jsonify(erreur=e.message, chevauchement=True, conflits=e.conflits), 409
+
+    @app.get("/api/affectations")
+    def affectations_liste():
+        debut = request.args.get("debut") or "0000-01-01"
+        fin = request.args.get("fin") or "9999-12-31"
+        rows = db().execute(REQUETE_AFFECTATIONS + " WHERE af.date_fin >= ? AND af.date_debut <= ?"
+                            " ORDER BY af.article_id, af.date_debut", (debut, fin)).fetchall()
+        with VERROU:
+            annulable = bool(PILE_ANNULATION)
+        return jsonify(affectations=[ligne(r) for r in rows], annulable=annulable)
+
+    @app.post("/api/affectations")
+    def affectations_creer():
+        d = request.get_json(force=True)
+        con = db()
+        ident = poser(con, lire_affectation(d), None, d.get("conflit"))
+        return jsonify(affectation_dict(con, ident)), 201
+
+    @app.put("/api/affectations/<int:ident>")
+    def affectations_modifier(ident):
+        trouver("affectation", ident, "Affectation introuvable.")
+        d = request.get_json(force=True)
+        con = db()
+        poser(con, lire_affectation(d), ident, d.get("conflit"))
+        return jsonify(affectation_dict(con, ident))
+
+    @app.delete("/api/affectations/<int:ident>")
+    def affectations_supprimer(ident):
+        trouver("affectation", ident, "Affectation introuvable.")
+        con = db()
+        memoriser(con)
+        con.execute("DELETE FROM affectation WHERE id = ?", (ident,))
+        con.commit()
+        return jsonify(ok=True)
+
+    @app.post("/api/affectations/<int:ident>/rendre")
+    def affectations_rendre(ident):
+        """Rendre au dépôt : la date donnée devient le dernier jour sur le chantier."""
+        af = trouver("affectation", ident, "Affectation introuvable.")
+        date = date_iso(request.get_json(force=True), "date", "Dernier jour", True)
+        if date < af["date_debut"]:
+            raise ErreurApi("Le dernier jour ne peut pas être avant le début de l'affectation.")
+        if date >= af["date_fin"]:
+            raise ErreurApi("L'affectation se termine déjà à cette date ou avant.")
+        con = db()
+        memoriser(con)
+        con.execute("UPDATE affectation SET date_fin = ? WHERE id = ?", (date, ident))
+        con.commit()
+        return jsonify(affectation_dict(con, ident))
+
+    @app.post("/api/affectations/<int:ident>/couper")
+    def affectations_couper(ident):
+        """Coupe en deux : [début, date - 1] et [date, fin]. Avec « chantier_id », la seconde
+        partie part sur un autre chantier (« changer de chantier à partir du… »)."""
+        af = trouver("affectation", ident, "Affectation introuvable.")
+        d = request.get_json(force=True)
+        date = date_iso(d, "date", "À partir du", True)
+        if not (af["date_debut"] < date <= af["date_fin"]):
+            raise ErreurApi("Une affectation d'un seul jour ne peut pas être coupée."
+                            if af["date_debut"] == af["date_fin"] else
+                            "La date doit être après le premier jour de l'affectation, et au plus tard son dernier jour.")
+        chantier_id = af["chantier_id"]
+        responsable = af["responsable"]
+        if d.get("chantier_id"):
+            chantier_id = int(d["chantier_id"])
+            trouver("chantier", chantier_id, "Chantier introuvable.")
+            responsable = texte(d, "responsable", False, "Responsable", 100)
+        con = db()
+        memoriser(con)
+        con.execute("UPDATE affectation SET date_fin = ? WHERE id = ?", (jour(date, -1), ident))
+        nouvel = con.execute(
+            "INSERT INTO affectation (article_id, chantier_id, date_debut, date_fin, responsable, remarque)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (af["article_id"], chantier_id, date, af["date_fin"], responsable, af["remarque"])).lastrowid
+        con.commit()
+        return jsonify(affectation_dict(con, nouvel)), 201
+
+    @app.post("/api/annuler")
+    def annuler():
+        with VERROU:
+            if not PILE_ANNULATION:
+                raise ErreurApi("Rien à annuler.")
+            rows = json.loads(PILE_ANNULATION.pop())
+        con = db()
+        try:
+            con.execute("DELETE FROM affectation")
+            for r in rows:
+                con.execute(f"INSERT INTO affectation ({', '.join(r)}) VALUES ({', '.join('?' * len(r))})",
+                            list(r.values()))
+            con.commit()
+        except sqlite3.IntegrityError:
+            con.rollback()
+            raise ErreurApi("Annulation impossible : un article ou un chantier concerné a été supprimé entre-temps.")
+        return jsonify(ok=True)

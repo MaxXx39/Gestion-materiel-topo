@@ -4,9 +4,9 @@ Application pour gérer le parc de matériel topographique (cannes GPS, stations
 
 Tout fonctionne **sur votre PC, sans Internet** (sauf au premier lancement, pour l'installation). Aucune donnée ne part dans le cloud.
 
-> **État actuel : étape 1** — catégories, articles (avec photo et documents) et chantiers.
+> **État actuel : étape 2** — planning visuel, catégories, articles (photo, documents) et chantiers.
 > Pré-remplissage des articles et chantiers depuis votre Excel : disponible.
-> À venir : planning visuel (étape 2), import de l'Excel (étape 3), PDF + Excel mensuels (étape 4), tableau de bord et sauvegarde en un clic (étape 5).
+> À venir : import des affectations de l'Excel (étape 3), PDF + Excel mensuels (étape 4), tableau de bord et sauvegarde en un clic (étape 5).
 
 ---
 
@@ -44,21 +44,32 @@ L'application crée les catégories, les articles (codes compta, couleurs) et le
 Avant de valider, vérifiez les chantiers marqués **« À vérifier »** : corrigez leur nom directement dans le tableau.
 Le fichier est lu sur votre PC uniquement. Vous pouvez relancer l'opération : ce qui existe déjà n'est pas dupliqué.
 
-## 5. Où sont mes données ?
+## 5. Utiliser le planning
+
+- **Créer une affectation :** glissez la souris sur les jours de la ligne d'un article, puis choisissez le chantier (tapez un n° ou un nom). S'il n'existe pas, cliquez sur « ＋ Créer le chantier… ».
+- **Allonger / raccourcir :** tirez le bord gauche ou droit d'une barre.
+- **Déplacer :** faites glisser une barre.
+- **Modifier :** cliquez sur une barre. Actions rapides : « Rendre au dépôt », « Changer de chantier à partir du… », « Couper en deux ».
+- **Chevauchement :** si une affectation en recouvre une autre, l'application demande s'il faut couper l'existante, la remplacer ou annuler.
+- **Annuler une erreur :** bouton « ↶ Annuler » ou Ctrl+Z (jusqu'à 30 retours, tant que l'application reste ouverte).
+- **Repérer :** tapez un chantier ou un article dans le champ « Repérer » pour faire ressortir ses barres.
+- Dates au clavier : « 5.10 », « 5.10.26 » ou « 05.10.2026 » sont acceptés.
+
+## 6. Où sont mes données ?
 
 Toutes vos données sont dans le dossier **`donnees`**, à côté de `Lancer.bat` :
 
 - `donnees\planning.db` : articles, chantiers, affectations ;
 - `donnees\fichiers\` : photos et documents joints.
 
-## 6. Sauvegarder et restaurer
+## 7. Sauvegarder et restaurer
 
 Un bouton « Sauvegarde » arrivera à l'étape 5. En attendant :
 
 - **Sauvegarder :** fermez la fenêtre noire, puis copiez le dossier `donnees` sur une clé USB ou un disque réseau.
 - **Restaurer :** fermez la fenêtre noire, puis remplacez le dossier `donnees` par votre copie.
 
-## 7. Mettre à jour l'application
+## 8. Mettre à jour l'application
 
 1. Fermez la fenêtre noire.
 2. Téléchargez et extrayez la nouvelle version.

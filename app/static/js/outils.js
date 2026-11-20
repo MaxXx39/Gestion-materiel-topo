@@ -16,7 +16,12 @@ export async function api(methode, url, corps) {
     throw new Error("Le serveur ne répond pas. L'application est-elle toujours lancée (fenêtre noire ouverte) ?");
   }
   const donnees = await reponse.json().catch(() => ({}));
-  if (!reponse.ok) throw new Error(donnees.erreur || `Erreur ${reponse.status}`);
+  if (!reponse.ok) {
+    const e = new Error(donnees.erreur || `Erreur ${reponse.status}`);
+    e.donnees = donnees;
+    e.statut = reponse.status;
+    throw e;
+  }
   return donnees;
 }
 

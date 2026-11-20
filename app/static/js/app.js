@@ -5,10 +5,11 @@ import pageArticle from "./pages/article.js";
 import pageChantiers from "./pages/chantiers.js";
 import pageCategories from "./pages/categories.js";
 import pagePreremplir from "./pages/preremplir.js";
+import pagePlanning from "./pages/planning.js";
 import { pageAVenir } from "./pages/a-venir.js";
 
 const PAGES = {
-  planning: pageAVenir("Planning", "Le planning visuel (glisser pour affecter, étirer, déplacer) arrive à l'étape 2."),
+  planning: pagePlanning,
   parc: pageParc,
   article: pageArticle,
   chantiers: pageChantiers,
@@ -21,7 +22,7 @@ async function afficher() {
   const adresse = location.hash.replace(/^#\/?/, "");
   const [chemin, requete = ""] = adresse.split("?");
   const [nom, ...args] = chemin.split("/");
-  const page = PAGES[nom] ? nom : "parc";
+  const page = PAGES[nom] ? nom : "planning";
   document.querySelectorAll("#menu a").forEach((a) => {
     const actif = a.dataset.page === page || ((page === "article" || page === "preremplir") && a.dataset.page === "parc");
     a.classList.toggle("actif", actif);

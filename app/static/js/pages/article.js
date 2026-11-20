@@ -276,7 +276,7 @@ function dessinerDocuments(conteneur, article) {
 function dessinerHistorique(conteneur, article) {
   const h = article.historique || [];
   conteneur.innerHTML = h.length
-    ? `<table class="liste"><tbody>${h.map((x) => `<tr>
+    ? `<table class="liste"><tbody>${h.map((x) => `<tr class="cliquable" onclick="location.hash='#/planning/${x.date_debut.slice(0, 4)}/${x.date_debut.slice(5, 7)}'" title="Voir sur le planning">
         <td style="white-space:nowrap">${dateAffichee(x.date_debut)} → ${dateAffichee(x.date_fin)}</td>
         <td>${esc(libelleChantier(x.chantier_numero, x.chantier_nom, x.responsable))}</td></tr>`).join("")}</tbody></table>`
     : `<p class="doux">Aucune affectation pour le moment.</p>`;
