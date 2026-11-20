@@ -9,6 +9,7 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.utils import secure_filename
 
 import base
+import import_excel
 
 DOSSIER_STATIC = Path(__file__).resolve().parent / "static"
 IDENTITE = "planning-materiel-topo"
@@ -133,6 +134,7 @@ def creer_app():
     enregistrer_categories(app)
     enregistrer_articles(app)
     enregistrer_chantiers(app)
+    enregistrer_preremplissage(app)
     return app
 
 
@@ -511,3 +513,70 @@ def enregistrer_chantiers(app):
         con.execute("DELETE FROM chantier WHERE id = ?", (ident,))
         con.commit()
         return jsonify(ok=True)
+
+
+# --------------------------------------------------------------------------
+# Pré-remplissage depuis l'ancien Excel (articles, catégories, chantiers)
+# --------------------------------------------------------------------------
+
+def enregistrer_preremplissage(app):
+    @app.post("/api/preremplissage/analyse")
+    def preremplissage_analyse():
+        fichier = request.files.get("fichier")
+        if not fichier or not fichier.filename:
+            raise ErreurApi("Aucun fichier reçu.")
+        try:
+            resultat = import_excel.lire_classeur(fichier.stream)
+        except import_excel.ErreurImport as e:
+            raise ErreurApi(str(e))
+        con = db()
+        numeros = {r[0].lower() for r in con.execute("SELECT numero_interne FROM article")}
+        cles = {r[0] for r in con.execute("SELECT cle_numero FROM chantier WHERE cle_numero <> ''")}
+        noms = {r[0].lower() for r in con.execute("SELECT nom FROM chantier WHERE cle_numero = ''")}
+        for a in resultat["articles"]:
+            a["existe"] = a["numero_interne"].lower() in numeros
+        for c in resultat["chantiers"]:
+            cle = base.cle_numero(c["numero"])
+            c["existe"] = cle in cles if cle else c["nom"].lower() in noms
+        return jsonify(resultat)
+
+    @app.post("/api/preremplissage/valider")
+    def preremplissage_valider():
+        d = request.get_json(force=True)
+        con = db()
+        compte = {"categories": 0, "articles": 0, "chantiers": 0, "ignores": 0}
+        try:
+            for brut in d.get("articles", []):
+                nom_cat = texte(brut, "categorie", True, "Catégorie", 100)
+                row = con.execute("SELECT id FROM categorie WHERE nom = ?", (nom_cat,)).fetchone()
+                if row:
+                    cat_id = row["id"]
+                else:
+                    ordre = con.execute("SELECT COALESCE(MAX(ordre), 0) + 1 FROM categorie").fetchone()[0]
+                    cat_id = con.execute("INSERT INTO categorie (nom, ordre) VALUES (?, ?)", (nom_cat, ordre)).lastrowid
+                    compte["categories"] += 1
+                numero = texte(brut, "numero_interne", True, "N° interne", 100)
+                if con.execute("SELECT 1 FROM article WHERE numero_interne = ?", (numero,)).fetchone():
+                    compte["ignores"] += 1
+                    continue
+                ordre = con.execute("SELECT COALESCE(MAX(ordre), 0) + 1 FROM article WHERE categorie_id = ?",
+                                    (cat_id,)).fetchone()[0]
+                con.execute(
+                    "INSERT INTO article (categorie_id, ordre, numero_interne, code_compta, couleur) VALUES (?, ?, ?, ?, ?)",
+                    (cat_id, ordre, numero, texte(brut, "code_compta", False, "Code compta", 50), couleur(brut, "couleur")))
+                compte["articles"] += 1
+            for brut in d.get("chantiers", []):
+                c = lire_chantier({"numero": brut.get("numero"), "nom": brut.get("nom"), "facturable": True})
+                try:
+                    verifier_chantier_unique(con, c)
+                except ErreurApi:
+                    compte["ignores"] += 1
+                    continue
+                con.execute(f"INSERT INTO chantier ({', '.join(c)}) VALUES ({', '.join('?' * len(c))})",
+                            list(c.values()))
+                compte["chantiers"] += 1
+            con.commit()
+        except Exception:
+            con.rollback()
+            raise
+        return jsonify(compte)

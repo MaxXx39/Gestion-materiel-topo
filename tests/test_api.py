@@ -114,5 +114,69 @@ class TestApi(unittest.TestCase):
         self.assertEqual(len(a["historique"]), 1)
 
 
+def excel_fictif():
+    """Petit classeur au format de l'ancien planning (données inventées)."""
+    import openpyxl
+    from openpyxl.styles import PatternFill
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws["A4"] = "Canne GPS"
+    ws.merge_cells("A4:A6")
+    for r, (code, num, coul) in enumerate([(112, "G1", "FFB7B7"), (None, "G2", "FFFFB9"), (103, "G3", "CCE0F4")], start=4):
+        ws.cell(r, 2, code)
+        ws.cell(r, 3, num).fill = PatternFill("solid", fgColor=coul)
+    ws["A7"] = "GUIDAGE"
+    ws.merge_cells("A7:A8")
+    ws["D4"] = "111 222 Ville A - Dupont"
+    ws.merge_cells("D4:J4")
+    ws["K4"] = "111 222 Ville A - Dupont"
+    ws.merge_cells("K4:M4")
+    ws["D5"] = "333444 Ville B Martin"
+    ws.merge_cells("D5:E5")
+    ws["F6"] = "INTERNE"
+    ws.merge_cells("F6:H6")
+    ws["G5"] = "10555"
+    flux = io.BytesIO()
+    wb.save(flux)
+    flux.seek(0)
+    return flux
+
+
+class TestPreremplissage(TestApi):
+    # Hérite de setUp ; les tests de TestApi ne sont pas relancés ici.
+    test_categories_ordre_et_doublon = test_article_creation_modification = test_validations = None
+    test_ordre_articles = test_photo_et_documents = test_chantiers = test_suppression_protegee_par_historique = None
+    def test_analyse_et_creation(self):
+        r = self.c.post("/api/preremplissage/analyse", data={"fichier": (excel_fictif(), "planning.xlsx")},
+                        content_type="multipart/form-data")
+        self.assertEqual(r.status_code, 200, r.get_json())
+        d = r.get_json()
+        self.assertEqual(d["categories"], ["Canne GPS", "GUIDAGE"])
+        self.assertEqual([a["numero_interne"] for a in d["articles"]], ["G1", "G2", "G3", "Guidage 1", "Guidage 2"])
+        self.assertEqual(d["articles"][0]["couleur"], "#FFB7B7")
+        self.assertEqual(d["articles"][1]["code_compta"], "")
+        ch = {c["numero"]: c for c in d["chantiers"]}
+        self.assertEqual(ch["111 222"]["nom"], "Ville A")       # responsable retiré
+        self.assertFalse(ch["111 222"]["a_verifier"])
+        self.assertTrue(ch["333 444"]["a_verifier"])            # pas de tiret : à vérifier
+        self.assertTrue(ch["10 555"]["a_verifier"])
+        self.assertEqual(ch[""]["nom"], "INTERNE")
+        # Un chantier sans nom est refusé : l'utilisateur doit le compléter.
+        r = self.c.post("/api/preremplissage/valider", json={"articles": [], "chantiers": [ch["10 555"]]})
+        self.assertEqual(r.status_code, 400)
+        ch["10 555"]["nom"] = "Ville C"
+        r = self.c.post("/api/preremplissage/valider", json={"articles": d["articles"], "chantiers": d["chantiers"]})
+        self.assertEqual(r.get_json(), {"categories": 2, "articles": 5, "chantiers": 4, "ignores": 0})
+        # Deuxième passage : tout existe déjà, rien n'est dupliqué.
+        r = self.c.post("/api/preremplissage/valider", json={"articles": d["articles"], "chantiers": d["chantiers"]})
+        self.assertEqual(r.get_json()["ignores"], 9)
+        self.assertEqual(len(self.c.get("/api/articles").get_json()), 5)
+
+    def test_mauvais_fichier(self):
+        r = self.c.post("/api/preremplissage/analyse", data={"fichier": (io.BytesIO(b"pas un excel"), "x.xlsx")},
+                        content_type="multipart/form-data")
+        self.assertEqual(r.status_code, 400)
+
+
 if __name__ == "__main__":
     unittest.main()

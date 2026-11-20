@@ -4,6 +4,7 @@ import pageParc from "./pages/parc.js";
 import pageArticle from "./pages/article.js";
 import pageChantiers from "./pages/chantiers.js";
 import pageCategories from "./pages/categories.js";
+import pagePreremplir from "./pages/preremplir.js";
 import { pageAVenir } from "./pages/a-venir.js";
 
 const PAGES = {
@@ -12,6 +13,7 @@ const PAGES = {
   article: pageArticle,
   chantiers: pageChantiers,
   categories: pageCategories,
+  preremplir: pagePreremplir,
   tableau: pageAVenir("Tableau de bord", "Le tableau de bord arrive à l'étape 5."),
 };
 
@@ -21,7 +23,7 @@ async function afficher() {
   const [nom, ...args] = chemin.split("/");
   const page = PAGES[nom] ? nom : "parc";
   document.querySelectorAll("#menu a").forEach((a) => {
-    const actif = a.dataset.page === page || (page === "article" && a.dataset.page === "parc");
+    const actif = a.dataset.page === page || ((page === "article" || page === "preremplir") && a.dataset.page === "parc");
     a.classList.toggle("actif", actif);
   });
   const zone = document.getElementById("page");

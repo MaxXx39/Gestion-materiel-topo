@@ -32,6 +32,7 @@ export default async function pageParc(zone) {
     <div class="titre-page">
       <h1>Parc matériel</h1>
       <span class="espace"></span>
+      <a class="bouton" href="#/preremplir">Pré-remplir depuis l'Excel</a>
       <button class="primaire" id="ajouter">＋ Ajouter un matériel</button>
     </div>
     <div class="outils">
@@ -90,7 +91,7 @@ export default async function pageParc(zone) {
     if (!liste.length) {
       const msg = articles.length
         ? "Aucun article ne correspond à ces filtres."
-        : "Le parc est vide. Cliquez sur « Ajouter un matériel » pour commencer.";
+        : "Le parc est vide. Cliquez sur « Pré-remplir depuis l'Excel » pour reprendre votre fichier actuel, ou sur « Ajouter un matériel ».";
       $("lignes").innerHTML = `<tr><td class="vide" colspan="${COLONNES.length}">${esc(msg)}</td></tr>`;
       return;
     }

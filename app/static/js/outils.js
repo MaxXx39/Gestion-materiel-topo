@@ -210,3 +210,23 @@ export function comparer(cle, sens = 1) {
     return String(x).localeCompare(String(y), "fr", { numeric: true, sensitivity: "base" }) * sens;
   };
 }
+
+// Zone de dépôt de fichiers : clic pour choisir, ou glisser-déposer.
+export function zoneDepot(element, multiple, accept, surFichiers) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.multiple = multiple;
+  if (accept) input.accept = accept;
+  input.hidden = true;
+  element.appendChild(input);
+  element.addEventListener("click", (e) => { if (!e.target.closest("button, a")) input.click(); });
+  input.addEventListener("change", () => { if (input.files.length) surFichiers([...input.files]); });
+  element.addEventListener("dragover", (e) => { e.preventDefault(); element.classList.add("survol"); });
+  element.addEventListener("dragleave", () => element.classList.remove("survol"));
+  element.addEventListener("drop", (e) => {
+    e.preventDefault();
+    element.classList.remove("survol");
+    if (e.dataTransfer.files.length) surFichiers([...e.dataTransfer.files]);
+  });
+}
+

@@ -181,3 +181,9 @@ dialog .actions { margin-top: 18px; justify-content: flex-end; }
   .grille-fiche { grid-template-columns: 1fr; }
   .champs { grid-template-columns: 1fr; }
 }
+
+/* ---- Pré-remplissage ---- */
+.zone-depot.grande { padding: 36px; font-size: 14px; cursor: pointer; margin-top: 12px; }
+tr.a-verifier td { background: #fff6e5; }
+table.liste td input { padding: 4px 6px; }
+.attention { color: var(--attention); }

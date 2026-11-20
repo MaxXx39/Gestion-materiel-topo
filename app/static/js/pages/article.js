@@ -1,7 +1,7 @@
 // Fiche article : création, modification, duplication, photo, documents, historique.
 import {
   api, esc, notifier, erreur, confirmer, demanderTexte, brancherChampDate, valeurDate, dateAffichee,
-  montantSaisi, PALETTE, couleurParDefaut, STATUTS, libelleChantier,
+  montantSaisi, PALETTE, couleurParDefaut, STATUTS, libelleChantier, zoneDepot,
 } from "../outils.js";
 
 const CHAMPS_TEXTE = ["numero_interne", "designation", "code_compta", "marque", "modele", "numero_serie", "fournisseur", "notes"];
@@ -205,25 +205,6 @@ function badgeLieu(a) {
     return `<span class="badge">Aujourd'hui : ${esc(libelleChantier(x.chantier_numero, x.chantier_nom, x.responsable))}</span>`;
   }
   return a.statut === "actif" ? `<span class="badge actif">Disponible aujourd'hui</span>` : "";
-}
-
-// Zone de dépôt de fichiers : clic pour choisir, ou glisser-déposer.
-function zoneDepot(element, multiple, accept, surFichiers) {
-  const input = document.createElement("input");
-  input.type = "file";
-  input.multiple = multiple;
-  if (accept) input.accept = accept;
-  input.hidden = true;
-  element.appendChild(input);
-  element.addEventListener("click", (e) => { if (!e.target.closest("button, a")) input.click(); });
-  input.addEventListener("change", () => { if (input.files.length) surFichiers([...input.files]); });
-  element.addEventListener("dragover", (e) => { e.preventDefault(); element.classList.add("survol"); });
-  element.addEventListener("dragleave", () => element.classList.remove("survol"));
-  element.addEventListener("drop", (e) => {
-    e.preventDefault();
-    element.classList.remove("survol");
-    if (e.dataTransfer.files.length) surFichiers([...e.dataTransfer.files]);
-  });
 }
 
 function dessinerPhoto(conteneur, article) {
